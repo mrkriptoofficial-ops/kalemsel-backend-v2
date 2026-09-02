@@ -6,3 +6,4 @@ pydantic
 python-slugify
 slowapi
 python-multipart
+email-validator

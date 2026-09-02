@@ -1,5 +1,6 @@
 import os
 import secrets
+import hashlib
 import logging
 import uvicorn
 from enum import Enum
@@ -7,13 +8,14 @@ from fastapi import FastAPI, HTTPException, Header, Depends, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 from slugify import slugify
 from bson import ObjectId
 from bson.errors import InvalidId
 from gridfs.errors import NoFile
+from pymongo.errors import DuplicateKeyError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -78,6 +80,40 @@ async def verify_admin(authorization: Optional[str] = Header(None)):
     if not secrets.compare_digest(token, ADMIN_PASSWORD):
         raise HTTPException(status_code=403, detail="Yetkisiz erisim: gecersiz sifre")
 
+# --- UYE (KAYITLI KULLANICI) SISTEMI ---
+# Yorum yapabilmek icin ya kayitli bir uye girisi ya da bir e-posta adresi
+# gerekiyor. Uye sifreleri PBKDF2 ile (ek bir kutuphane gerektirmeden,
+# stdlib'deki hashlib ile) hashlenir; giris sonrasi verilen token da DB'de
+# ham haliyle degil, hash'i tutularak saklanir.
+PBKDF2_ITERATIONS = 260_000
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), PBKDF2_ITERATIONS)
+    return f"{salt}${dk.hex()}"
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt, hash_hex = stored.split("$")
+    except ValueError:
+        return False
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), PBKDF2_ITERATIONS)
+    return secrets.compare_digest(dk.hex(), hash_hex)
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+async def get_current_member(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """
+    Uye girisi ISTEGE BAGLI olan uc noktalarda kullanilir (ornegin yorum
+    ekleme): gecerli bir uye token'i varsa uyeyi dondurur, yoksa None -
+    hata firlatmaz (cunku anonim + e-posta ile de yorum yapilabiliyor).
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.removeprefix("Bearer ").strip()
+    return await db.members.find_one({"token_hash": hash_token(token)})
+
 def raise_server_error(e: Exception):
     """
     Ham hata mesajini (str(e)) dogrudan istemciye gostermek yerine sunucu
@@ -112,8 +148,28 @@ class PostUpdate(BaseModel):
     video_url: Optional[str] = None
 
 class CommentCreate(BaseModel):
-    author: str
+    # author/email: uye girisi yoksa ikisi de zorunlu; uye girisi varsa ikisi
+    # de otomatik uye profilinden alinir (author verilirse gorunen ismi gecer).
+    author: Optional[str] = None
     content: str
+    email: Optional[EmailStr] = None
+
+class MemberRegister(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class MemberLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class AuthorApplicationCreate(BaseModel):
+    full_name: str  # Ad Soyad
+    phone: str  # Telefon
+    sample_text: str  # Ornek metin (siir/oyku vb.)
+
+class AuthorApplicationStatusUpdate(BaseModel):
+    status: str  # "beklemede" | "kabul edildi" | "reddedildi"
 
 class HomepageSectionCreate(BaseModel):
     title: str  # Serbest metin: "Günün Şiiri", "Günün Öyküsü" veya admin ne isterse
@@ -186,6 +242,11 @@ async def create_indexes():
     # (esiz istek yarisi/race condition durumlarina karsi ek guvence).
     try:
         await db.likes.create_index([("post_id", 1), ("ip", 1)], unique=True)
+    except Exception as e:
+        logger.warning(f"Index olusturma hatasi: {e}")
+    # Ayni e-posta ile iki kez uye kaydi olusturulmasin
+    try:
+        await db.members.create_index("email", unique=True)
     except Exception as e:
         logger.warning(f"Index olusturma hatasi: {e}")
 
@@ -395,6 +456,109 @@ async def delete_media(file_id: str, _: None = Depends(verify_admin)):
         raise_server_error(e)
     return {"status": "success", "mesaj": "Dosya silindi"}
 
+# --- UYELIK (KAYIT / GIRIS) ---
+# Yorum yapabilmek icin "kayitli uye" olma yolu bu uc noktalardan gecer.
+# Alternatifi (uye olmadan sadece e-posta ile yorum yapma) yorum uc
+# noktasinda ele alinir.
+
+@app.post("/api/members/register")
+@limiter.limit("5/minute")
+async def register_member(request: Request, member: MemberRegister):
+    try:
+        if len(member.password) < 6:
+            raise HTTPException(status_code=400, detail="Sifre en az 6 karakter olmali")
+        member_dict = {
+            "name": member.name,
+            "email": member.email,
+            "password_hash": hash_password(member.password),
+            "created_at": datetime.now(),
+        }
+        try:
+            result = await db.members.insert_one(member_dict)
+        except DuplicateKeyError:
+            raise HTTPException(status_code=409, detail="Bu e-posta adresiyle zaten bir uye var")
+        return {"status": "success", "id": str(result.inserted_id), "mesaj": "Kayit basarili, simdi giris yapabilirsiniz"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+@app.post("/api/members/login")
+@limiter.limit("10/minute")
+async def login_member(request: Request, credentials: MemberLogin):
+    try:
+        member = await db.members.find_one({"email": credentials.email})
+        if not member or not verify_password(credentials.password, member["password_hash"]):
+            raise HTTPException(status_code=401, detail="E-posta veya sifre hatali")
+        token = secrets.token_urlsafe(32)
+        await db.members.update_one({"_id": member["_id"]}, {"$set": {"token_hash": hash_token(token)}})
+        return {
+            "status": "success",
+            "token": token,
+            "mesaj": "Giris basarili. Bu token'i istekte 'Authorization: Bearer <token>' olarak gonderin",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# --- YAZAR/SAIR BASVURUSU ("Yazar Ol") ---
+# Herkes basvurabilir; bilgiler sadece admin'in gorebilecegi bir listeye
+# duser, admin degerlendirip durumunu gunceller.
+
+@app.post("/api/author-applications")
+@limiter.limit("3/minute")
+async def create_author_application(request: Request, application: AuthorApplicationCreate):
+    try:
+        app_dict = application.dict()
+        app_dict["status"] = "beklemede"
+        app_dict["created_at"] = datetime.now()
+        result = await db.author_applications.insert_one(app_dict)
+        return {"status": "success", "id": str(result.inserted_id), "mesaj": "Basvurunuz alindi, degerlendirilecek"}
+    except Exception as e:
+        raise_server_error(e)
+
+# Basvurulari listeleme (sadece ana kullanici / admin)
+@app.get("/api/author-applications")
+async def get_author_applications(_: None = Depends(verify_admin)):
+    try:
+        cursor = db.author_applications.find().sort("created_at", -1)
+        applications = [stringify_id(doc) async for doc in cursor]
+        return applications
+    except Exception as e:
+        raise_server_error(e)
+
+# Basvuru durumunu guncelleme (sadece ana kullanici / admin)
+@app.put("/api/author-applications/{application_id}")
+async def update_author_application(application_id: str, update: AuthorApplicationStatusUpdate, _: None = Depends(verify_admin)):
+    try:
+        if update.status not in {"beklemede", "kabul edildi", "reddedildi"}:
+            raise HTTPException(status_code=400, detail="Gecersiz durum degeri")
+        oid = parse_object_id(application_id, "basvuru id")
+        result = await db.author_applications.update_one({"_id": oid}, {"$set": {"status": update.status}})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Basvuru bulunamadi")
+        updated = await db.author_applications.find_one({"_id": oid})
+        return stringify_id(updated)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# Basvuruyu silme (sadece ana kullanici / admin)
+@app.delete("/api/author-applications/{application_id}")
+async def delete_author_application(application_id: str, _: None = Depends(verify_admin)):
+    try:
+        oid = parse_object_id(application_id, "basvuru id")
+        result = await db.author_applications.delete_one({"_id": oid})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Basvuru bulunamadi")
+        return {"status": "success", "mesaj": "Basvuru silindi"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
 # --- ANA SAYFA (dinamik bolumler: Gunun Siiri, Gunun Oykusu vb.) ---
 
 # Ana sayfaya yeni bir bolum ekleme (sadece ana kullanici / admin)
@@ -497,19 +661,48 @@ async def like_post(request: Request, post_id: str):
 
 # --- YORUMLAR ---
 
-# Yorum ekleme (herkes yapabilir, ama yayinlanmadan once ana kullanici onayi gerekir)
+# Yorum ekleme: ya kayitli uye girisi (Authorization: Bearer <uye-token>)
+# ya da bir e-posta adresiyle (author + email) yapilabilir. Hicbiri yoksa
+# reddedilir. Her iki durumda da yayinlanmadan once admin onayi gerekir.
 @app.post("/api/posts/{post_id}/comments")
 @limiter.limit("5/minute")
-async def create_comment(request: Request, post_id: str, comment: CommentCreate):
+async def create_comment(
+    request: Request,
+    post_id: str,
+    comment: CommentCreate,
+    member: Optional[dict] = Depends(get_current_member),
+):
     try:
         oid = parse_object_id(post_id, "post id")
         post = await db.posts.find_one({"_id": oid})
         if not post:
             raise HTTPException(status_code=404, detail="Post bulunamadi")
-        comment_dict = comment.dict()
-        comment_dict["post_id"] = post_id
-        comment_dict["approved"] = False
-        comment_dict["created_at"] = datetime.now()
+
+        if member:
+            author_name = comment.author or member["name"]
+            email = member["email"]
+            member_id = str(member["_id"])
+        else:
+            if not comment.email:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Yorum yapmak icin uye girisi yapmali (/api/members/login) veya bir e-posta adresi girmelisiniz",
+                )
+            if not comment.author:
+                raise HTTPException(status_code=400, detail="Isim (author) girilmeli")
+            author_name = comment.author
+            email = comment.email
+            member_id = None
+
+        comment_dict = {
+            "author": author_name,
+            "content": comment.content,
+            "email": email,
+            "member_id": member_id,
+            "post_id": post_id,
+            "approved": False,
+            "created_at": datetime.now(),
+        }
         result = await db.comments.insert_one(comment_dict)
         return {"status": "success", "id": str(result.inserted_id), "mesaj": "Yorumunuz onay bekliyor"}
     except HTTPException:
@@ -518,11 +711,17 @@ async def create_comment(request: Request, post_id: str, comment: CommentCreate)
         raise_server_error(e)
 
 # Bir postun onaylanmis yorumlarini listeleme (herkese acik)
+# Not: e-posta ve member_id gizlilik icin bu genel listede gosterilmez,
+# sadece admin'in gordugu /api/comments/pending icinde yer alir.
 @app.get("/api/posts/{post_id}/comments")
 async def get_comments(post_id: str):
     try:
         cursor = db.comments.find({"post_id": post_id, "approved": True}).sort("created_at", 1)
-        comments = [stringify_id(doc) async for doc in cursor]
+        comments = []
+        async for doc in cursor:
+            doc.pop("email", None)
+            doc.pop("member_id", None)
+            comments.append(stringify_id(doc))
         return comments
     except Exception as e:
         raise_server_error(e)
