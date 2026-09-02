@@ -3,15 +3,17 @@ import secrets
 import logging
 import uvicorn
 from enum import Enum
-from fastapi import FastAPI, HTTPException, Header, Depends, Request
+from fastapi import FastAPI, HTTPException, Header, Depends, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from fastapi.responses import StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from slugify import slugify
 from bson import ObjectId
 from bson.errors import InvalidId
+from gridfs.errors import NoFile
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -31,6 +33,18 @@ if not MONGO_URL:
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.kalemsel_v2_database
+
+# --- MEDYA (GORSEL/VIDEO) DEPOLAMA ---
+# Dosyalar MongoDB icinde GridFS ile saklanir, boylece ek bir bulut depolama
+# servisi/hesabi gerekmez. Buyuk video dosyalarinin MongoDB Atlas depolama
+# kotanizi hizla tuketebilecegini unutmayin (uzerinde COK sayida/uzun video
+# birikirse ileride S3/Cloudinary gibi bir servise gecmek gerekebilir).
+fs_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="media")
+ALLOWED_MEDIA_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "video/mp4", "video/webm", "video/quicktime",
+}
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # CORS - Sitenin her yerden erisilebilir olmasi icin
 # Not: Kimlik dogrulama cookie ile degil Authorization header'i ile yapiliyor,
@@ -85,7 +99,8 @@ class Post(BaseModel):
     content_type: ContentType
     category: str = "Genel"
     author: str = "Yönetici"
-    cover_image: Optional[str] = None
+    cover_image: Optional[str] = None  # /api/media/<id> (yuklenen dosya) veya harici bir URL
+    video_url: Optional[str] = None  # /api/media/<id> (yuklenen dosya) veya harici bir URL (ornegin YouTube)
 
 class PostUpdate(BaseModel):
     title: Optional[str] = None
@@ -94,6 +109,7 @@ class PostUpdate(BaseModel):
     category: Optional[str] = None
     author: Optional[str] = None
     cover_image: Optional[str] = None
+    video_url: Optional[str] = None
 
 class CommentCreate(BaseModel):
     author: str
@@ -103,12 +119,16 @@ class HomepageSectionCreate(BaseModel):
     title: str  # Serbest metin: "Günün Şiiri", "Günün Öyküsü" veya admin ne isterse
     content: Optional[str] = None  # Serbest metin icerik
     post_id: Optional[str] = None  # Istege bagli: mevcut bir yaziya referans
+    image_url: Optional[str] = None  # /api/media/<id> veya harici bir URL
+    video_url: Optional[str] = None  # /api/media/<id> veya harici bir URL
     order: int = 0  # Ana sayfada gorunme sirasi (kucuk sayi once gelir)
 
 class HomepageSectionUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     post_id: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
     order: Optional[int] = None
 
 def parse_object_id(id_str: str, field_name: str = "id") -> ObjectId:
@@ -283,14 +303,96 @@ async def delete_post(post_id: str, _: None = Depends(verify_admin)):
     except Exception as e:
         raise_server_error(e)
 
+# --- MEDYA (GORSEL/VIDEO) ---
+
+# Dosya yukleme (sadece ana kullanici / admin). Basarili olursa donen "url"
+# degeri dogrudan Post/HomepageSection'daki cover_image/video_url/image_url
+# alanlarina yazilabilir.
+@app.post("/api/media/upload")
+async def upload_media(file: UploadFile = File(...), _: None = Depends(verify_admin)):
+    try:
+        if file.content_type not in ALLOWED_MEDIA_TYPES:
+            raise HTTPException(status_code=400, detail=f"Desteklenmeyen dosya turu: {file.content_type}")
+
+        upload_stream = fs_bucket.open_upload_stream(
+            file.filename or "dosya",
+            metadata={"content_type": file.content_type, "uploaded_at": datetime.now()},
+        )
+        total_size = 0
+        try:
+            while True:
+                chunk = await file.read(1024 * 1024)  # 1 MB'lik parcalar halinde oku
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > MAX_UPLOAD_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Dosya cok buyuk (maksimum {MAX_UPLOAD_SIZE // (1024 * 1024)} MB)",
+                    )
+                await upload_stream.write(chunk)
+        except HTTPException:
+            await upload_stream.abort()
+            raise
+        await upload_stream.close()
+
+        file_id = str(upload_stream._id)
+        return {
+            "status": "success",
+            "id": file_id,
+            "url": f"/api/media/{file_id}",
+            "content_type": file.content_type,
+            "filename": file.filename,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# Yuklenmis bir dosyayi getirme/oynatma (herkese acik - <img>/<video> src'si olarak kullanilir)
+@app.get("/api/media/{file_id}")
+async def get_media(file_id: str):
+    oid = parse_object_id(file_id, "media id")
+    try:
+        grid_out = await fs_bucket.open_download_stream(oid)
+    except NoFile:
+        raise HTTPException(status_code=404, detail="Dosya bulunamadi")
+    except Exception as e:
+        raise_server_error(e)
+
+    async def stream():
+        while True:
+            chunk = await grid_out.readchunk()
+            if not chunk:
+                break
+            yield chunk
+
+    content_type = (grid_out.metadata or {}).get("content_type", "application/octet-stream")
+    return StreamingResponse(stream(), media_type=content_type)
+
+# Yuklenmis bir dosyayi silme (sadece ana kullanici / admin)
+@app.delete("/api/media/{file_id}")
+async def delete_media(file_id: str, _: None = Depends(verify_admin)):
+    oid = parse_object_id(file_id, "media id")
+    try:
+        await fs_bucket.delete(oid)
+    except NoFile:
+        raise HTTPException(status_code=404, detail="Dosya bulunamadi")
+    except Exception as e:
+        raise_server_error(e)
+    return {"status": "success", "mesaj": "Dosya silindi"}
+
 # --- ANA SAYFA (dinamik bolumler: Gunun Siiri, Gunun Oykusu vb.) ---
 
 # Ana sayfaya yeni bir bolum ekleme (sadece ana kullanici / admin)
 @app.post("/api/homepage")
 async def create_homepage_section(section: HomepageSectionCreate, _: None = Depends(verify_admin)):
     try:
-        if not section.content and not section.post_id:
-            raise HTTPException(status_code=400, detail="Icerik metni veya bir yazi referansi (post_id) girilmeli")
+        if not any([section.content, section.post_id, section.image_url, section.video_url]):
+            raise HTTPException(
+                status_code=400,
+                detail="Icerik metni, bir yazi referansi (post_id), gorsel veya video URL'sinden en az biri girilmeli",
+            )
         if section.post_id:
             oid = parse_object_id(section.post_id, "post_id")
             if not await db.posts.find_one({"_id": oid}):

@@ -5,3 +5,4 @@ dnspython
 pydantic
 python-slugify
 slowapi
+python-multipart
