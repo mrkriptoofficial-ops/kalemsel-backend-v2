@@ -661,9 +661,10 @@ async def like_post(request: Request, post_id: str):
 
 # --- YORUMLAR ---
 
-# Yorum ekleme: ya kayitli uye girisi (Authorization: Bearer <uye-token>)
-# ya da bir e-posta adresiyle (author + email) yapilabilir. Hicbiri yoksa
-# reddedilir. Her iki durumda da yayinlanmadan once admin onayi gerekir.
+# Yorum ekleme: sadece bir isim (author) yeterli, herkes yapabilir.
+# Uye girisi yapilmissa (Authorization: Bearer <uye-token>) isim/e-posta
+# otomatik profilden alinir, ama bu zorunlu degil. Yayinlanmadan once
+# admin onayi gerekir - asil koruma budur.
 @app.post("/api/posts/{post_id}/comments")
 @limiter.limit("5/minute")
 async def create_comment(
@@ -683,11 +684,8 @@ async def create_comment(
             email = member["email"]
             member_id = str(member["_id"])
         else:
-            if not comment.email:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Yorum yapmak icin uye girisi yapmali (/api/members/login) veya bir e-posta adresi girmelisiniz",
-                )
+            # Uye girisi sart degil - sadece bir isim yeterli. E-posta
+            # verilirse (istege bagli) admin gorebilsin diye saklanir.
             if not comment.author:
                 raise HTTPException(status_code=400, detail="Isim (author) girilmeli")
             author_name = comment.author
