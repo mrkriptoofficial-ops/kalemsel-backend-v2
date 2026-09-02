@@ -191,7 +191,20 @@ async def create_indexes():
 
 @app.get("/")
 async def root():
-    return {"status": "Online", "database": "Bagli", "mesaj": "Kalemsel v2 Basariyla Calisiyor"}
+    """
+    Saglik kontrolu. Onceden 'database': 'Bagli' her zaman sabit donuyordu -
+    gercekte baglanti kopuk olsa da bu deger degismiyordu. Artik gercek bir
+    ping atiliyor: bir deploy'dan sonra buraya bakip veritabaninin gercekten
+    calisir durumda olup olmadigini anlik olarak gorebilirsiniz. 'Kopuk'
+    donuyorsa hemen eski (calisir) versiyona geri donmeniz gerekir.
+    """
+    db_status = "Bagli"
+    try:
+        await db.command("ping")
+    except Exception as e:
+        db_status = "Kopuk"
+        logger.error(f"Saglik kontrolu - veritabani baglantisi basarisiz: {e}")
+    return {"status": "Online", "database": db_status, "mesaj": "Kalemsel v2 Basariyla Calisiyor"}
 
 # Yeni icerik ekleme (sadece ana kullanici / admin)
 @app.post("/api/posts")
