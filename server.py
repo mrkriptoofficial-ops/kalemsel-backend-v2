@@ -1,7 +1,7 @@
 import os
 import secrets
 import uvicorn
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
@@ -71,7 +71,26 @@ def parse_object_id(id_str: str, field_name: str = "id") -> ObjectId:
     except InvalidId:
         raise HTTPException(status_code=400, detail=f"Gecersiz {field_name}")
 
+def get_client_ip(request: Request) -> str:
+    """
+    Render/Railway gibi proxy arkasindaki platformlarda gercek istemci IP'si
+    X-Forwarded-For header'inda gelir (ilk deger). O yoksa dogrudan baglantiyi kullan.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "bilinmiyor"
+
 # --- ROTALAR (ENDPOINTS) ---
+
+@app.on_event("startup")
+async def create_indexes():
+    # Ayni IP'nin ayni postu iki kez begenmesini veritabani seviyesinde de engelle
+    # (esiz istek yarisi/race condition durumlarina karsi ek guvence).
+    try:
+        await db.likes.create_index([("post_id", 1), ("ip", 1)], unique=True)
+    except Exception as e:
+        print(f"Index olusturma hatasi: {e}")
 
 @app.get("/")
 async def root():
@@ -105,16 +124,24 @@ async def get_posts():
 
 # --- BEGENI ---
 
-# Bir posta begeni ekleme (herkes yapabilir, onay gerekmez)
+# Bir posta begeni ekleme (herkes yapabilir, onay gerekmez, ayni IP ayni postu tekrar begenemez)
 @app.post("/api/posts/{post_id}/like")
-async def like_post(post_id: str):
+async def like_post(post_id: str, request: Request):
     try:
         oid = parse_object_id(post_id, "post id")
-        result = await db.posts.update_one({"_id": oid}, {"$inc": {"likes": 1}})
-        if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Post bulunamadi")
         post = await db.posts.find_one({"_id": oid})
-        return {"status": "success", "likes": post.get("likes", 0)}
+        if not post:
+            raise HTTPException(status_code=404, detail="Post bulunamadi")
+
+        ip = get_client_ip(request)
+        existing_like = await db.likes.find_one({"post_id": post_id, "ip": ip})
+        if existing_like:
+            raise HTTPException(status_code=409, detail="Bu gonderiyi zaten begendiniz")
+
+        await db.likes.insert_one({"post_id": post_id, "ip": ip, "created_at": datetime.now()})
+        await db.posts.update_one({"_id": oid}, {"$inc": {"likes": 1}})
+        updated_post = await db.posts.find_one({"_id": oid})
+        return {"status": "success", "likes": updated_post.get("likes", 0)}
     except HTTPException:
         raise
     except Exception as e:
