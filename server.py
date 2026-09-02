@@ -11,17 +11,15 @@ from slugify import slugify
 
 app = FastAPI(title="Kalemsel v2 API - Kesin Cozum")
 
-# SENIN BILGILERINLE MONGO BAGLANTISI
-# <db_username> -> kalemsel2020
-# <db_password> -> rMJM1sboQMlubA23
-MONGO_URL = "mongodb+srv://kalemsel2020:rMJM1sboQMlubA23@kalemsel-db.9junytc.mongodb.net/?retryWrites=true&w=majority&appName=kalemsel-db"
+# MONGO BAGLANTISI
+# Baglanti adresi artik kod icinde degil, MONGO_URL environment variable'indan okunuyor.
+# Ornek: export MONGO_URL="mongodb+srv://<kullanici>:<sifre>@<cluster-adresi>/?retryWrites=true&w=majority"
+MONGO_URL = os.environ.get("MONGO_URL")
+if not MONGO_URL:
+    raise RuntimeError("MONGO_URL environment variable tanimli degil")
 
-try:
-    client = AsyncIOMotorClient(MONGO_URL)
-    db = client.kalemsel_v2_database
-    print("MongoDB'ye basariyla baglanildi!")
-except Exception as e:
-    print(f"Baglanti hatasi: {e}")
+client = AsyncIOMotorClient(MONGO_URL)
+db = client.kalemsel_v2_database
 
 # CORS - Sitenin her yerden erisilebilir olmasi icin
 app.add_middleware(
