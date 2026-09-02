@@ -19,29 +19,35 @@ Siteye şu adresten bakın: `https://<siteniz>/`
 
 ## 2. Kod tarafında eski hale dönme (Git)
 
-Her önemli değişiklikten sonra bir **git tag** (kontrol noktası) bırakıyoruz.
-Mevcut kontrol noktalarını görmek için:
+Bilinen çalışır kontrol noktalarının commit numaraları (SHA):
+
+| Kontrol noktası | Commit | Açıklama |
+|---|---|---|
+| `orijinal-hal` | `0154426` | Depoya ilk yüklenen, hiç değiştirilmemiş kod (güvenlik açığı içerir, sadece referans için) |
+| `kontrol-noktasi-1` | `aa899f5` | Admin şifre koruması + yorum/beğeni + medya desteği + tüm kritik eksikler tamamlandı, test edildi |
+| `kontrol-noktasi-2` | `9a839ad` | Rollback güvenliği eklendi: gerçek sağlık kontrolü + bu rehber |
+
+(Not: Bu oturumda GitHub'a git tag push etme yetkim kısıtlı olduğu için
+bunlar tag değil, doğrudan commit numarasi olarak tutuluyor - islev
+aynıdır.)
+
+Belirli bir kontrol noktasına dönmek için:
 
 ```bash
-git tag -l
+git checkout <commit-numarasi>
+# ornek: git checkout aa899f5
 ```
 
-Belirli bir kontrol noktasına dönmek için (örnek):
-
-```bash
-git checkout <tag-adi>
-```
-
-Ya da GitHub üzerinden hiç terminal kullanmadan:
-1. Repo sayfasında "main" yazan yerden tag'i seçin (örn. `kontrol-noktasi-2`).
-2. O anki kod halini görürsünüz, isterseniz oradan yeni bir branch açıp
-   deploy edebilirsiniz.
+Ya da GitHub üzerinden hiç terminal kullanmadan: repo sayfasında commit
+geçmişine (Commits) girip istediğiniz commit'e tıklayın, "Browse files"
+ile o anki kod halini görüp indirebilir veya oradan yeni bir branch
+açabilirsiniz.
 
 **Önemli:** `main` branch'i şu ana kadar hiç değiştirilmedi, hâlâ en
-başındaki orijinal kodu taşıyor. Yani `main` kendi başına zaten güvenilir
-bir "eski hal" - eğer barındırma platformunuz `main`'den deploy ediyorsa ve
-oraya henüz hiçbir değişiklik alınmadıysa, şu an sitede zaten orijinal kod
-çalışıyor demektir.
+başındaki orijinal kodu (`0154426`) taşıyor. Yani `main` kendi başına
+zaten güvenilir bir "eski hal" - eğer barındırma platformunuz `main`'den
+deploy ediyorsa ve oraya henüz hiçbir değişiklik alınmadıysa, şu an sitede
+zaten orijinal kod çalışıyor demektir.
 
 ## 3. Barındırma platformunda (Render/Railway vb.) eski deploy'a dönme
 
