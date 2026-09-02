@@ -1,6 +1,7 @@
 import os
+import secrets
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
@@ -31,6 +32,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- YETKILENDIRME (SADECE ANA KULLANICI PAYLASIM YAPABILIR) ---
+# Sunucu ortaminda ADMIN_PASSWORD environment variable'i tanimlanmali.
+# Ornek: export ADMIN_PASSWORD="cok-guclu-bir-sifre"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+async def verify_admin(authorization: Optional[str] = Header(None)):
+    """
+    Paylasim (post olusturma/duzenleme) islemlerini sadece ana kullaniciyla
+    sinirlamak icin kullanilir. Istek su sekilde gonderilmeli:
+    Authorization: Bearer <ADMIN_PASSWORD>
+    """
+    if not ADMIN_PASSWORD:
+        # Sunucuda sifre tanimlanmamissa kimse paylasim yapamasin.
+        raise HTTPException(status_code=500, detail="Sunucuda ADMIN_PASSWORD tanimli degil")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Yetkisiz erisim: Authorization header eksik")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not secrets.compare_digest(token, ADMIN_PASSWORD):
+        raise HTTPException(status_code=403, detail="Yetkisiz erisim: gecersiz sifre")
+
 # --- VERI YAPISI ---
 class Post(BaseModel):
     title: str
@@ -46,9 +67,9 @@ class Post(BaseModel):
 async def root():
     return {"status": "Online", "database": "Bagli", "mesaj": "Kalemsel v2 Basariyla Calisiyor"}
 
-# Yeni icerik ekleme
+# Yeni icerik ekleme (sadece ana kullanici / admin)
 @app.post("/api/posts")
-async def create_post(post: Post):
+async def create_post(post: Post, _: None = Depends(verify_admin)):
     try:
         post_dict = post.dict()
         post_dict["slug"] = slugify(post.title)
