@@ -99,6 +99,18 @@ class CommentCreate(BaseModel):
     author: str
     content: str
 
+class HomepageSectionCreate(BaseModel):
+    title: str  # Serbest metin: "Günün Şiiri", "Günün Öyküsü" veya admin ne isterse
+    content: Optional[str] = None  # Serbest metin icerik
+    post_id: Optional[str] = None  # Istege bagli: mevcut bir yaziya referans
+    order: int = 0  # Ana sayfada gorunme sirasi (kucuk sayi once gelir)
+
+class HomepageSectionUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    post_id: Optional[str] = None
+    order: Optional[int] = None
+
 def parse_object_id(id_str: str, field_name: str = "id") -> ObjectId:
     try:
         return ObjectId(id_str)
@@ -117,6 +129,23 @@ def get_client_ip(request: Request) -> str:
 
 def stringify_id(doc: dict) -> dict:
     doc["_id"] = str(doc["_id"])
+    return doc
+
+async def enrich_homepage_section(doc: dict) -> dict:
+    """
+    Bir ana sayfa bolumune post_id verilmisse, o yazinin tam halini de
+    yanit icine ekler; boylece frontend ayrica ikinci bir istek atmak
+    zorunda kalmaz.
+    """
+    doc = stringify_id(doc)
+    doc["post"] = None
+    if doc.get("post_id"):
+        try:
+            post = await db.posts.find_one({"_id": ObjectId(doc["post_id"])})
+        except InvalidId:
+            post = None
+        if post:
+            doc["post"] = stringify_id(post)
     return doc
 
 # --- SPAM/RATE-LIMIT KORUMASI ---
@@ -249,6 +278,77 @@ async def delete_post(post_id: str, _: None = Depends(verify_admin)):
         await db.comments.delete_many({"post_id": post_id})
         await db.likes.delete_many({"post_id": post_id})
         return {"status": "success", "mesaj": "Post silindi"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# --- ANA SAYFA (dinamik bolumler: Gunun Siiri, Gunun Oykusu vb.) ---
+
+# Ana sayfaya yeni bir bolum ekleme (sadece ana kullanici / admin)
+@app.post("/api/homepage")
+async def create_homepage_section(section: HomepageSectionCreate, _: None = Depends(verify_admin)):
+    try:
+        if not section.content and not section.post_id:
+            raise HTTPException(status_code=400, detail="Icerik metni veya bir yazi referansi (post_id) girilmeli")
+        if section.post_id:
+            oid = parse_object_id(section.post_id, "post_id")
+            if not await db.posts.find_one({"_id": oid}):
+                raise HTTPException(status_code=404, detail="Referans verilen yazi bulunamadi")
+
+        section_dict = section.dict()
+        section_dict["created_at"] = datetime.now()
+        result = await db.homepage_sections.insert_one(section_dict)
+        return {"status": "success", "id": str(result.inserted_id)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# Ana sayfa icerigini listeleme (herkese acik)
+@app.get("/api/homepage")
+async def get_homepage_sections():
+    try:
+        cursor = db.homepage_sections.find().sort([("order", 1), ("created_at", 1)])
+        sections = [await enrich_homepage_section(doc) async for doc in cursor]
+        return sections
+    except Exception as e:
+        raise_server_error(e)
+
+# Ana sayfa bolumunu guncelleme (sadece ana kullanici / admin)
+@app.put("/api/homepage/{section_id}")
+async def update_homepage_section(section_id: str, section_update: HomepageSectionUpdate, _: None = Depends(verify_admin)):
+    try:
+        oid = parse_object_id(section_id, "section id")
+        existing = await db.homepage_sections.find_one({"_id": oid})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Bolum bulunamadi")
+
+        update_data = {k: v for k, v in section_update.dict(exclude_unset=True).items() if v is not None}
+        if not update_data:
+            raise HTTPException(status_code=400, detail="Guncellenecek herhangi bir alan gonderilmedi")
+        if "post_id" in update_data:
+            post_oid = parse_object_id(update_data["post_id"], "post_id")
+            if not await db.posts.find_one({"_id": post_oid}):
+                raise HTTPException(status_code=404, detail="Referans verilen yazi bulunamadi")
+
+        await db.homepage_sections.update_one({"_id": oid}, {"$set": update_data})
+        updated = await db.homepage_sections.find_one({"_id": oid})
+        return await enrich_homepage_section(updated)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_server_error(e)
+
+# Ana sayfa bolumunu silme (sadece ana kullanici / admin)
+@app.delete("/api/homepage/{section_id}")
+async def delete_homepage_section(section_id: str, _: None = Depends(verify_admin)):
+    try:
+        oid = parse_object_id(section_id, "section id")
+        result = await db.homepage_sections.delete_one({"_id": oid})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Bolum bulunamadi")
+        return {"status": "success", "mesaj": "Bolum silindi"}
     except HTTPException:
         raise
     except Exception as e:
