@@ -44,7 +44,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="zikirmatik-v2-${{ github.run_number }}"
-          gh release create "$TAG" Zikirmatik.apk \
+          gh release create "$TAG" Zikirmatik.apk fonts.log \
             --target "${{ github.sha }}" \
             --title "Zikirmatik 2 (${{ github.run_number }})" \
             --notes "Telefona indir ve kur: Zikirmatik.apk" \

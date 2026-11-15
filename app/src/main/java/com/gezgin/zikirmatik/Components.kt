@@ -285,7 +285,7 @@ fun LuxField(value: String, onChange: (String) -> Unit, label: String, number: B
 @Composable
 fun SectionTitle(text: String) {
     val p = LocalPal.current
-    Text(text.uppercase(java.util.Locale.forLanguageTag("tr")), style = labelStyle(p.goldText), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 10.dp))
+    Text(text.upperL(), style = labelStyle(p.goldText), modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 10.dp))
 }
 
 @Composable
@@ -307,13 +307,13 @@ fun SettingRow(title: String, desc: String? = null, trailing: @Composable () -> 
 fun Stepper(value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     val p = LocalPal.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        GlyphButton(G.MINUS, "Azalt", 44.dp, onClick = onMinus)
+        GlyphButton(G.MINUS, L("Azalt", "Decrease"), 44.dp, onClick = onMinus)
         Text(
             value,
             style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = p.text, fontFeatureSettings = NUM_FEATURES, textAlign = TextAlign.Center),
             modifier = Modifier.widthIn(min = 72.dp),
         )
-        GlyphButton(G.PLUS, "Artır", 44.dp, onClick = onPlus)
+        GlyphButton(G.PLUS, L("Artır", "Increase"), 44.dp, onClick = onPlus)
     }
 }
 
@@ -326,7 +326,7 @@ fun ScreenFrame(title: String, onBack: () -> Unit, action: (@Composable () -> Un
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlyphButton(G.BACK, "Geri", onClick = onBack)
+            GlyphButton(G.BACK, L("Geri", "Back"), onClick = onBack)
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, style = titleStyle(p.numberBrush).copy(fontSize = 24.sp))
                 Spacer(Modifier.height(2.dp))
@@ -391,7 +391,7 @@ fun LuxSnack(data: SnackbarData) {
         val action = data.visuals.actionLabel
         if (action != null) {
             Text(
-                action.uppercase(java.util.Locale.forLanguageTag("tr")),
+                action.upperL(),
                 style = labelStyle(p.goldText).copy(fontSize = 11.sp),
                 modifier = Modifier.clip(RoundedCornerShape(50)).clickable { data.performAction() }.padding(horizontal = 14.dp, vertical = 12.dp),
             )

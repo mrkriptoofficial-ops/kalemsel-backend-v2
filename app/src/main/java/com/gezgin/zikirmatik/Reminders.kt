@@ -51,17 +51,17 @@ object Reminders {
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm?.createNotificationChannel(NotificationChannel(CH, "Zikir hatırlatmaları", NotificationManager.IMPORTANCE_DEFAULT))
+        nm?.createNotificationChannel(NotificationChannel(CH, L("Zikir hatırlatmaları", "Dhikr reminders"), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             ctx, 10 + code, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val title = if (code == 1) "Sabah zikri vakti" else "Akşam zikri vakti"
+        val title = if (code == 1) L("Sabah zikri vakti", "Time for morning dhikr") else L("Akşam zikri vakti", "Time for evening dhikr")
         val n = NotificationCompat.Builder(ctx, CH)
             .setSmallIcon(R.drawable.ic_stat)
             .setColor(0xFFD4AE62.toInt())
             .setContentTitle(title)
-            .setContentText("Kalpler ancak Allah'ı anmakla huzur bulur.")
+            .setContentText(L("Kalpler ancak Allah'ı anmakla huzur bulur.", "Hearts find peace only in the remembrance of Allah."))
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
@@ -75,8 +75,10 @@ object Reminders {
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val code = intent.getIntExtra("code", 1)
+        val s = Repo(ctx).loadSettings()
+        I18n.apply(s.lang)
         Reminders.notify(ctx, code)
-        Reminders.schedule(ctx, Repo(ctx).loadSettings())
+        Reminders.schedule(ctx, s)
     }
 }
 
@@ -142,9 +144,9 @@ class ZikirWidget : AppWidgetProvider() {
             return RemoteViews(ctx.packageName, R.layout.widget_zikir).apply {
                 if (session != null) {
                     // Tesbihat sürerken widget saymaz; karışıklığı önlemek için uygulamayı açar
-                    setTextViewText(R.id.w_name, "Tesbihat sürüyor")
+                    setTextViewText(R.id.w_name, L("Tesbihat sürüyor", "Sequence in progress"))
                     setTextViewText(R.id.w_count, "${session.count}")
-                    setTextViewText(R.id.w_target, "devam için dokun")
+                    setTextViewText(R.id.w_target, L("devam için dokun", "tap to continue"))
                     setOnClickPendingIntent(R.id.w_tap, openApp)
                     setOnClickPendingIntent(R.id.w_open, openApp)
                     return@apply

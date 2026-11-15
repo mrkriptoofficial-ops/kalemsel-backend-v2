@@ -95,6 +95,8 @@ fun ZikirApp(act: MainActivity) {
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { ZikirWidget.refresh(ctx) }
 
     val pal = PALETLER[st.settings.theme.coerceIn(0, PALETLER.lastIndex)]
+    val lang = st.settings.lang
+    I18n.apply(lang)
     LaunchedEffect(pal.dark) { act.applyBars(pal.dark) }
 
     // Ses tuşları: sadece sayaç ve odak ekranında, panel kapalıyken
@@ -110,7 +112,7 @@ fun ZikirApp(act: MainActivity) {
     val exportL = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
             val ok = runCatching { ctx.contentResolver.openOutputStream(uri)?.use { it.write(st.repo.exportJson().toByteArray()) } }.isSuccess
-            st.toast(if (ok) "Yedek kaydedildi" else "Yedek kaydedilemedi")
+            st.toast(if (ok) L("Yedek kaydedildi", "Backup saved") else L("Yedek kaydedilemedi", "Backup could not be saved"))
         }
     }
     val importL = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -119,12 +121,12 @@ fun ZikirApp(act: MainActivity) {
             if (text != null && st.repo.importJson(text)) {
                 st.load()
                 Reminders.schedule(ctx, st.settings)
-                st.toast("Yedek geri yüklendi")
-            } else st.toast("Bu dosya geçerli bir Zikirmatik yedeği değil")
+                st.toast(L("Yedek geri yüklendi", "Backup restored"))
+            } else st.toast(L("Bu dosya geçerli bir Zikirmatik yedeği değil", "This file is not a valid Zikirmatik backup"))
         }
     }
     val notifyL = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted) st.toast("Bildirim izni verilmedi; hatırlatıcılar görünmeyecek")
+        if (!granted) st.toast(L("Bildirim izni verilmedi; hatırlatıcılar görünmeyecek", "Notification permission denied; reminders won't appear"))
     }
     val askNotify = {
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -145,6 +147,8 @@ fun ZikirApp(act: MainActivity) {
             LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * st.settings.fontScale),
             LocalTextStyle provides TextStyle(fontFamily = Sans, color = pal.text),
         ) {
+            // Dil değişince tüm arayüz yeni dilde baştan çizilir
+            key(lang) {
             Box(Modifier.fillMaxSize()) {
                 if (screen != Scr.ODAK) Sky(pal)
                 AnimatedContent(
@@ -184,6 +188,7 @@ fun ZikirApp(act: MainActivity) {
                 SheetKind.Target -> TargetSheet(st.current.target, { st.setTarget(it); sheet = null }) { sheet = null }
                 is SheetKind.Edit -> EditZikirSheet(k.zikir, { o, a, an, f, t -> st.saveZikir(k.zikir, o, a, an, f, t); sheet = null }) { sheet = null }
                 is SheetKind.VirdEdit -> VirdEditSheet(st, k.vird) { sheet = null }
+            }
             }
         }
     }

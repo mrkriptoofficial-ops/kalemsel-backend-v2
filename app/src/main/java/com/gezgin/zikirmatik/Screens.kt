@@ -34,6 +34,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -55,7 +62,11 @@ private val TRL = Locale.forLanguageTag("tr")
 @Composable
 fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
     val p = LocalPal.current
-    ScreenFrame("Zikirlerim", back, action = { GlyphButton(G.PLUS, "Yeni zikir") { sheet(SheetKind.Edit(null)) } }) {
+    var dragId by remember { mutableStateOf<Long?>(null) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var rowH by remember { mutableFloatStateOf(0f) }
+    val spacingPx = with(LocalDensity.current) { 10.dp.toPx() }
+    ScreenFrame(L("Zikirlerim", "My Dhikr"), back, action = { GlyphButton(G.PLUS, L("Yeni zikir", "New dhikr")) { sheet(SheetKind.Edit(null)) } }) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 40.dp),
@@ -63,18 +74,45 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
         ) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Kütüphane", Modifier.weight(1f), G.BOOK) { go(Scr.KUTUPHANE) }
-                    GhostButton("Tesbihat", Modifier.weight(1f), G.BEADS) { go(Scr.TESBIHAT) }
+                    GhostButton(L("Kütüphane", "Library"), Modifier.weight(1f), G.BOOK) { go(Scr.KUTUPHANE) }
+                    GhostButton(L("Tesbihat", "Sequences"), Modifier.weight(1f), G.BEADS) { go(Scr.TESBIHAT) }
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(L("Sıralamak için bir zikre uzun basıp sürükle.", "Long-press and drag a dhikr to reorder."), style = bodyStyle(p.sub).copy(fontSize = 12.sp, textAlign = TextAlign.Center), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(4.dp))
             }
             itemsIndexed(st.zikirs, key = { _, z -> z.id }) { i, z ->
                 val on = z.id == st.selId && st.session == null
                 val shape = RoundedCornerShape(22.dp)
+                val dragging = dragId == z.id
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .animateItem()
+                        .then(if (dragging) Modifier.zIndex(1f) else Modifier.animateItem())
+                        .onSizeChanged { rowH = it.height.toFloat() + spacingPx }
+                        .graphicsLayer {
+                            if (dragging) { translationY = dragY; scaleX = 1.03f; scaleY = 1.03f; shadowElevation = 18f }
+                        }
+                        // Uzun bas → sürükle: sıralamayı değiştir
+                        .pointerInput(z.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { dragId = z.id; dragY = 0f; st.fb.tap(if (st.settings.haptic == 0) 0 else 2) },
+                                onDragEnd = { dragId = null; dragY = 0f },
+                                onDragCancel = { dragId = null; dragY = 0f },
+                            ) { change, amount ->
+                                change.consume()
+                                dragY += amount.y
+                                val cur = st.zikirs.firstOrNull { it.id == z.id } ?: return@detectDragGesturesAfterLongPress
+                                if (rowH > 0f && dragY > rowH * 0.6f) { st.move(cur, 1); dragY -= rowH }
+                                else if (rowH > 0f && dragY < -rowH * 0.6f) { st.move(cur, -1); dragY += rowH }
+                            }
+                        }
+                        .semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(L("Yukarı taşı", "Move up")) { st.move(z, -1); true },
+                                CustomAccessibilityAction(L("Aşağı taşı", "Move down")) { st.move(z, 1); true },
+                            )
+                        }
                         .then(if (on) Modifier.clip(shape).background(p.gold.copy(alpha = 0.12f)).border(1.dp, p.gold.copy(alpha = 0.7f), shape) else Modifier.glass(p, shape))
                         .clickable { st.endSession(); st.select(z.id); back() }
                         .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
@@ -95,16 +133,13 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
                             )
                         }
                         Text(
-                            "${fmt(z.count)}  ·  hedef ${fmt(z.target)}",
+                            L("${fmt(z.count)}  ·  hedef ${fmt(z.target)}", "${fmt(z.count)}  ·  target ${fmt(z.target)}"),
                             style = labelStyle(p.sub).copy(fontSize = 10.sp, letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES),
                         )
                     }
-                    Column {
-                        GlyphButton(G.UP, "Yukarı taşı", 40.dp, bordered = false) { st.move(z, -1) }
-                        GlyphButton(G.DOWN, "Aşağı taşı", 40.dp, bordered = false) { st.move(z, 1) }
-                    }
-                    GlyphButton(G.EDIT, "Düzenle", 40.dp, bordered = false) { sheet(SheetKind.Edit(z)) }
-                    if (st.zikirs.size > 1) GlyphButton(G.TRASH, "Sil", 40.dp, bordered = false) { st.delete(z) }
+                    Glyph(G.GRIP, p.faint, 20.dp, Modifier.padding(horizontal = 4.dp))
+                    GlyphButton(G.EDIT, L("Düzenle", "Edit"), 40.dp, bordered = false) { sheet(SheetKind.Edit(z)) }
+                    if (st.zikirs.size > 1) GlyphButton(G.TRASH, L("Sil", "Delete"), 40.dp, bordered = false) { st.delete(z) }
                 }
             }
         }
@@ -116,8 +151,8 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
 fun LibraryScreen(st: AppState, back: () -> Unit) {
     val p = LocalPal.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Sünnet", "Günlük", "Salavât", "Esmâ")
-    ScreenFrame("Kütüphane", back) {
+    val tabs = listOf(L("Sünnet", "Sunnah"), L("Günlük", "Daily"), L("Salavât", "Salawat"), L("Esmâ", "Names"))
+    ScreenFrame(L("Kütüphane", "Library"), back) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).glass(p, RoundedCornerShape(50)).padding(4.dp),
         ) {
@@ -142,7 +177,7 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
             ) {
                 if (tab == 0) item {
                     Text(
-                        "Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler. Her birinin faziletini bildiren hadisin kaynağı yanında yazılıdır.",
+                        L("Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler. Her birinin faziletini bildiren hadisin kaynağı yanında yazılıdır.", "Dhikr recommended by the Prophet (peace be upon him). The hadith source for each virtue is noted beside it."),
                         style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center, fontSize = 13.sp),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                     )
@@ -168,8 +203,8 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
                             }
                         }
                         Spacer(Modifier.width(8.dp))
-                        if (have) GlyphButton(G.CHECK, "Eklendi", 40.dp, bordered = false, tint = p.sub) {}
-                        else GlyphButton(G.PLUS, "Zikirlerime ekle", 40.dp) { st.addFromLib(item) }
+                        if (have) GlyphButton(G.CHECK, L("Eklendi", "Added"), 40.dp, bordered = false, tint = p.sub) {}
+                        else GlyphButton(G.PLUS, L("Zikirlerime ekle", "Add to my dhikr"), 40.dp) { st.addFromLib(item) }
                     }
                 }
             }
@@ -181,7 +216,7 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
 @Composable
 fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
     val p = LocalPal.current
-    ScreenFrame("Tesbihat", back, action = { GlyphButton(G.PLUS, "Yeni tesbihat") { sheet(SheetKind.VirdEdit(null)) } }) {
+    ScreenFrame(L("Tesbihat", "Sequences"), back, action = { GlyphButton(G.PLUS, L("Yeni tesbihat", "New sequence")) { sheet(SheetKind.VirdEdit(null)) } }) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 40.dp),
@@ -189,7 +224,7 @@ fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
         ) {
             item {
                 Text(
-                    "Sıralı zikir setleri. Bir adımın hedefi dolunca sonraki adıma kendiliğinden geçilir.",
+                    L("Sıralı zikir setleri. Bir adımın hedefi dolunca sonraki adıma kendiliğinden geçilir.", "Dhikr sequences. When a step reaches its target, the next step starts automatically."),
                     style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 )
             }
@@ -203,10 +238,10 @@ fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(v.name, style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = p.text))
-                            Text("${v.steps.size} adım · ${fmt(v.total)} zikir", style = labelStyle(p.sub).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
+                            Text(L("${v.steps.size} adım · ${fmt(v.total)} zikir", "${v.steps.size} steps · ${fmt(v.total)} dhikr"), style = labelStyle(p.sub).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
                         }
-                        GlyphButton(G.EDIT, "Düzenle", 40.dp, bordered = false) { sheet(SheetKind.VirdEdit(v)) }
-                        GlyphButton(G.TRASH, "Sil", 40.dp, bordered = false) { st.deleteVird(v) }
+                        GlyphButton(G.EDIT, L("Düzenle", "Edit"), 40.dp, bordered = false) { sheet(SheetKind.VirdEdit(v)) }
+                        GlyphButton(G.TRASH, L("Sil", "Delete"), 40.dp, bordered = false) { st.deleteVird(v) }
                     }
                     Spacer(Modifier.height(10.dp))
                     v.steps.forEachIndexed { i, s ->
@@ -218,7 +253,7 @@ fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
                         }
                         if (i == v.steps.lastIndex) Spacer(Modifier.height(8.dp))
                     }
-                    PrimaryButton(if (active) "Devam et" else "Başla", Modifier.fillMaxWidth(), enabled = v.steps.isNotEmpty(), glyph = G.PLAY) {
+                    PrimaryButton(if (active) L("Devam et", "Continue") else L("Başla", "Start"), Modifier.fillMaxWidth(), enabled = v.steps.isNotEmpty(), glyph = G.PLAY) {
                         if (!active) st.startVird(v)
                         back()
                     }
@@ -232,7 +267,7 @@ fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
 @Composable
 fun StatsScreen(st: AppState, back: () -> Unit) {
     val p = LocalPal.current
-    ScreenFrame("İstatistik", back) {
+    ScreenFrame(L("İstatistik", "Statistics"), back) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 40.dp),
@@ -240,13 +275,13 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
         ) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Tile("Bugün", fmt(st.today()), Modifier.weight(1f))
-                    Tile("Bu hafta", fmt(st.weekSum()), Modifier.weight(1f))
+                    Tile(L("Bugün", "Today"), fmt(st.today()), Modifier.weight(1f))
+                    Tile(L("Bu hafta", "This week"), fmt(st.weekSum()), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Tile("Bu ay", fmt(st.monthSum()), Modifier.weight(1f))
-                    Tile("Toplam", fmt(st.total), Modifier.weight(1f))
+                    Tile(L("Bu ay", "This month"), fmt(st.monthSum()), Modifier.weight(1f))
+                    Tile(L("Toplam", "Total"), fmt(st.total), Modifier.weight(1f))
                 }
             }
             item {
@@ -257,24 +292,46 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
                     StarLogo(54.dp)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("GÜNLÜK SERİ", style = labelStyle(p.sub))
+                        Text(L("GÜNLÜK SERİ", "DAILY STREAK"), style = labelStyle(p.sub))
                         Text(
-                            "${st.streak()} gün",
+                            L("${st.streak()} gün", "${st.streak()} days"),
                             style = TextStyle(brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, fontFeatureSettings = NUM_FEATURES),
                         )
-                        Text("En uzun seri: ${st.bestStreak} gün", style = bodyStyle(p.sub).copy(fontSize = 13.sp))
+                        Text(L("En uzun seri: ${st.bestStreak} gün", "Longest streak: ${st.bestStreak} days"), style = bodyStyle(p.sub).copy(fontSize = 13.sp))
                     }
                 }
             }
             item { WeekBars(st) }
             item { Heatmap(st) }
             item {
+                val today = st.lapsToday()
                 Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
-                    Text("GÜNLÜK HEDEF", style = labelStyle(p.sub))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(L("TAMAMLANAN TURLAR", "COMPLETED ROUNDS"), style = labelStyle(p.sub), modifier = Modifier.weight(1f))
+                        Text(L("Toplam ${fmt(st.lapsTotal())}", "Total ${fmt(st.lapsTotal())}"), style = labelStyle(p.goldText).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    if (today.isEmpty()) {
+                        Text(L("Bugün henüz tamamlanan tur yok.", "No rounds completed today yet."), style = bodyStyle(p.sub).copy(fontSize = 13.sp))
+                    } else {
+                        today.entries.sortedByDescending { it.value }.forEach { (name, n) ->
+                            Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(6.dp).clip(CircleShape).background(p.gold))
+                                Spacer(Modifier.width(10.dp))
+                                Text(name, style = bodyStyle(p.text), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("× ${fmt(n)}", style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = p.goldText, fontFeatureSettings = NUM_FEATURES))
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
+                    Text(L("GÜNLÜK HEDEF", "DAILY GOAL"), style = labelStyle(p.sub))
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (st.settings.dailyGoal == 0) "Kapalı" else "${fmt(st.today())} / ${fmt(st.settings.dailyGoal)}",
+                            if (st.settings.dailyGoal == 0) L("Kapalı", "Off") else "${fmt(st.today())} / ${fmt(st.settings.dailyGoal)}",
                             style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = p.text, fontFeatureSettings = NUM_FEATURES),
                             modifier = Modifier.weight(1f),
                         )
@@ -290,7 +347,7 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
                 val top = st.zikirs.sortedByDescending { it.count }.filter { it.count > 0 }.take(6)
                 if (top.isNotEmpty()) {
                     Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
-                        Text("EN ÇOK ÇEKİLENLER", style = labelStyle(p.sub))
+                        Text(L("EN ÇOK ÇEKİLENLER", "MOST RECITED"), style = labelStyle(p.sub))
                         Spacer(Modifier.height(10.dp))
                         val max = top.first().count.toFloat()
                         top.forEach { z ->
@@ -313,7 +370,7 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
 private fun Tile(label: String, value: String, modifier: Modifier) {
     val p = LocalPal.current
     Column(modifier.glass(p, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 16.dp)) {
-        Text(label.uppercase(TRL), style = labelStyle(p.sub))
+        Text(label.upperL(), style = labelStyle(p.sub))
         Spacer(Modifier.height(4.dp))
         Text(value, style = TextStyle(brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, fontFeatureSettings = NUM_FEATURES), maxLines = 1)
     }
@@ -327,7 +384,7 @@ private fun WeekBars(st: AppState) {
     val vals = days.map { st.history[dayKey(it)] ?: 0 }
     val max = (vals.maxOrNull() ?: 0).coerceAtLeast(1)
     Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
-        Text("SON 7 GÜN", style = labelStyle(p.sub))
+        Text(L("SON 7 GÜN", "LAST 7 DAYS"), style = labelStyle(p.sub))
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
             days.forEachIndexed { i, d ->
@@ -347,7 +404,7 @@ private fun WeekBars(st: AppState) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        d.dayOfWeek.getDisplayName(JTextStyle.SHORT, TRL).take(3),
+                        d.dayOfWeek.getDisplayName(JTextStyle.SHORT, I18n.locale).take(3),
                         style = TextStyle(fontFamily = Sans, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, fontSize = 11.sp, color = if (isToday) p.text else p.sub),
                     )
                 }
@@ -357,8 +414,8 @@ private fun WeekBars(st: AppState) {
 }
 
 private fun compact(v: Int): String = when {
-    v >= 10_000 -> "${v / 1000}B"
-    v >= 1_000 -> String.format(TRL, "%.1fB", v / 1000f)
+    v >= 10_000 -> "${v / 1000}" + L("B", "K")
+    v >= 1_000 -> String.format(I18n.locale, "%.1f", v / 1000f) + L("B", "K")
     else -> "$v"
 }
 
@@ -370,10 +427,10 @@ private fun Heatmap(st: AppState) {
     val days = generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.toList()
     val max = days.maxOfOrNull { st.history[dayKey(it)] ?: 0 }?.coerceAtLeast(1) ?: 1
     Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
-        Text("TAKVİM", style = labelStyle(p.sub))
+        Text(L("TAKVİM", "CALENDAR"), style = labelStyle(p.sub))
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz").forEach {
+            listOf(L("Pt", "Mo"), L("Sa", "Tu"), L("Ça", "We"), L("Pe", "Th"), L("Cu", "Fr"), L("Ct", L("Sa", "Tu")), L("Pz", "Su")).forEach {
                 Text(it, style = labelStyle(p.sub).copy(letterSpacing = 0.sp), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             }
         }
@@ -406,93 +463,101 @@ private fun Heatmap(st: AppState) {
 fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImport: () -> Unit, askNotify: () -> Unit) {
     val p = LocalPal.current
     val s = st.settings
-    ScreenFrame("Ayarlar", back) {
+    ScreenFrame(L("Ayarlar", "Settings"), back) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 48.dp),
         ) {
             item {
-                SectionTitle("Görünüm")
+                SectionTitle(L("Görünüm", "Appearance"))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PALETLER.forEachIndexed { i, pal -> ThemeSwatch(pal, s.theme == i, Modifier.weight(1f)) { st.update { it.copy(theme = i) } } }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Tespih", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Text(L("Tespih", "Prayer beads"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BEADS.forEachIndexed { i, b -> BeadSwatch(b, s.bead == i, Modifier.weight(1f)) { st.update { it.copy(bead = i) } } }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Yazı boyutu", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Text(L("Dil", "Language"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Normal" to 1f, "Büyük" to 1.15f, "Çok büyük" to 1.3f).forEach { (t, v) ->
+                    listOf(L("Sistem", "System") to 0, "Türkçe" to 1, "English" to 2).forEach { (t, v) ->
+                        GoldChip(t, s.lang == v) { st.update { it.copy(lang = v) } }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(L("Yazı boyutu", "Text size"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(L("Normal", "Normal") to 1f, L("Büyük", "Large") to 1.15f, L("Çok büyük", "Extra large") to 1.3f).forEach { (t, v) ->
                         GoldChip(t, abs(s.fontScale - v) < 0.01f) { st.update { it.copy(fontScale = v) } }
                     }
                 }
             }
             item {
-                SectionTitle("Sayma")
-                SettingRow("Hedefte dur", "Hedefe ulaşınca sayaç durur. Kapalıyken turları sayarak devam eder.") {
+                SectionTitle(L("Sayma", "Counting"))
+                SettingRow(L("Hedefte dur", "Stop at target"), L("Hedefe ulaşınca sayaç durur. Kapalıyken turları sayarak devam eder.", "Counter stops at the target. When off, it keeps counting rounds.")) {
                     LuxSwitch(s.stopAtTarget) { v -> st.update { it.copy(stopAtTarget = v) } }
                 }
-                SettingRow("Ses tuşlarıyla say", "Ekrana bakmadan, ses açma/kısma tuşlarıyla zikir çek.") {
+                SettingRow(L("Ses tuşlarıyla say", "Count with volume keys"), L("Ekrana bakmadan, ses açma/kısma tuşlarıyla zikir çek.", "Count with the volume buttons without looking at the screen.")) {
                     LuxSwitch(s.volumeKeys) { v -> st.update { it.copy(volumeKeys = v) } }
                 }
-                Text("Çift dokunma koruması", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text), modifier = Modifier.padding(top = 10.dp))
+                Text(L("Çift dokunma koruması", "Double-tap guard"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text), modifier = Modifier.padding(top = 10.dp))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Kapalı" to 0, "Normal" to 70, "Güçlü" to 160).forEach { (t, v) -> GoldChip(t, s.guardMs == v) { st.update { it.copy(guardMs = v) } } }
+                    listOf(L("Kapalı", "Off") to 0, L("Normal", "Normal") to 70, L("Güçlü", "Strong") to 160).forEach { (t, v) -> GoldChip(t, s.guardMs == v) { st.update { it.copy(guardMs = v) } } }
                 }
             }
             item {
-                SectionTitle("Titreşim ve ses")
-                Text("Titreşim gücü", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                SectionTitle(L("Titreşim ve ses", "Haptics and sound"))
+                Text(L("Titreşim gücü", "Vibration strength"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Kapalı", "Hafif", "Normal", "Güçlü").forEachIndexed { i, t ->
+                    listOf(L("Kapalı", "Off"), L("Hafif", "Light"), L("Normal", "Normal"), L("Güçlü", "Strong")).forEachIndexed { i, t ->
                         GoldChip(t, s.haptic == i) { st.update { it.copy(haptic = i) }; st.fb.tap(i) }
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Ara titreşim", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
-                Text("Hedefe ulaşmadan, belirli aralıklarla çift titreşim verir.", style = bodyStyle(p.sub).copy(fontSize = 12.5.sp))
+                Text(L("Ara titreşim", "Interval vibration"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Text(L("Hedefe ulaşmadan, belirli aralıklarla çift titreşim verir.", "Double vibration at set intervals before the target."), style = bodyStyle(p.sub).copy(fontSize = 12.5.sp))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Kapalı" to 0, "Her 10" to 10, "Her 33" to 33).forEach { (t, v) -> GoldChip(t, s.milestone == v) { st.update { it.copy(milestone = v) } } }
+                    listOf(L("Kapalı", "Off") to 0, L("Her 10", "Every 10") to 10, L("Her 33", "Every 33") to 33).forEach { (t, v) -> GoldChip(t, s.milestone == v) { st.update { it.copy(milestone = v) } } }
                 }
-                SettingRow("Tespih sesi", "Her dokunuşta yumuşak bir tane sesi.") {
+                SettingRow(L("Tespih sesi", "Bead sound"), L("Her dokunuşta yumuşak bir tane sesi.", "A soft bead click on every tap.")) {
                     LuxSwitch(s.sound) { v -> st.update { it.copy(sound = v) }; if (v) st.fb.click(true) }
                 }
             }
             item {
-                SectionTitle("Hatırlatıcılar")
-                ReminderRow("Sabah zikri", s.remMorning, s.morningMin,
+                SectionTitle(L("Hatırlatıcılar", "Reminders"))
+                ReminderRow(L("Sabah zikri", "Morning dhikr"), s.remMorning, s.morningMin,
                     onToggle = { v -> if (v) askNotify(); st.update { it.copy(remMorning = v) } },
                     onTime = { m -> st.update { it.copy(morningMin = m) } })
-                ReminderRow("Akşam zikri", s.remEvening, s.eveningMin,
+                ReminderRow(L("Akşam zikri", "Evening dhikr"), s.remEvening, s.eveningMin,
                     onToggle = { v -> if (v) askNotify(); st.update { it.copy(remEvening = v) } },
                     onTime = { m -> st.update { it.copy(eveningMin = m) } })
                 Text(
-                    "Hatırlatıcılar sabit saatte çalışır. Namaz vaktine göre hatırlatma, konum verisi gerektirdiği için bu sürümde yok.",
+                    L("Hatırlatıcılar sabit saatte çalışır. Namaz vaktine göre hatırlatma, konum verisi gerektirdiği için bu sürümde yok.", "Reminders run at a fixed time. Prayer-time reminders need location data and are not in this version."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.sp), modifier = Modifier.padding(top = 4.dp),
                 )
             }
             item {
-                SectionTitle("Veriler")
+                SectionTitle(L("Veriler", "Data"))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Yedekle", Modifier.weight(1f), G.EXPORT, onExport)
-                    GhostButton("Geri yükle", Modifier.weight(1f), G.IMPORT, onImport)
+                    GhostButton(L("Yedekle", "Back up"), Modifier.weight(1f), G.EXPORT, onExport)
+                    GhostButton(L("Geri yükle", "Restore"), Modifier.weight(1f), G.IMPORT, onImport)
                 }
                 Text(
-                    "Yedek dosyası zikirlerini, sayaçlarını, tesbihatlarını, geçmişini ve ayarlarını birlikte saklar.",
+                    L("Yedek dosyası zikirlerini, sayaçlarını, tesbihatlarını, geçmişini ve ayarlarını birlikte saklar.", "The backup file stores your dhikr, counts, sequences, history and settings together."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.sp), modifier = Modifier.padding(top = 8.dp),
                 )
             }
             item {
-                SectionTitle("Hakkında")
+                SectionTitle(L("Hakkında", "About"))
                 Text(
-                    "Zikirmatik 2.1\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).",
+                    L("Zikirmatik 2.2\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.2\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
@@ -512,7 +577,7 @@ private fun BeadSwatch(m: BeadMat, selected: Boolean, modifier: Modifier, onClic
         modifier.clip(shape)
             .then(if (selected) Modifier.border(2.dp, p.gold, shape) else Modifier.glass(p, shape))
             .clickable(role = Role.RadioButton, onClick = onClick)
-            .semantics { contentDescription = "${m.name} tespih" }
+            .semantics { contentDescription = nameL(m.name) }
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -522,7 +587,7 @@ private fun BeadSwatch(m: BeadMat, selected: Boolean, modifier: Modifier, onClic
             drawCircle(Color.White.copy(alpha = 0.9f * m.spec), r * 0.09f, Offset(r * 0.7f, r * 0.62f))
         }
         Spacer(Modifier.height(6.dp))
-        Text(m.name, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = p.text), maxLines = 1)
+        Text(nameL(m.name), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = p.text), maxLines = 1)
     }
 }
 
@@ -536,7 +601,7 @@ private fun ThemeSwatch(pal: Pal, selected: Boolean, modifier: Modifier, onClick
             .background(Brush.verticalGradient(listOf(pal.bgTop, pal.bgBottom)))
             .border(if (selected) 2.dp else 1.dp, if (selected) p.gold else p.hair, shape)
             .clickable(role = Role.RadioButton, onClick = onClick)
-            .semantics { contentDescription = "${pal.name} teması" }
+            .semantics { contentDescription = L("${pal.name} teması", "${nameL(pal.name)} theme") }
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -546,7 +611,7 @@ private fun ThemeSwatch(pal: Pal, selected: Boolean, modifier: Modifier, onClick
             drawArc(pal.goldLight, -90f, 230f, false, Offset(6.dp.toPx(), 6.dp.toPx()), Size(size.width - 12.dp.toPx(), size.height - 12.dp.toPx()), style = Stroke(2.dp.toPx()))
         }
         Spacer(Modifier.height(8.dp))
-        Text(pal.name, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = pal.text))
+        Text(nameL(pal.name), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = pal.text))
     }
 }
 
@@ -554,16 +619,16 @@ private fun ThemeSwatch(pal: Pal, selected: Boolean, modifier: Modifier, onClick
 private fun ReminderRow(title: String, on: Boolean, minutes: Int, onToggle: (Boolean) -> Unit, onTime: (Int) -> Unit) {
     val p = LocalPal.current
     Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).glass(p, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 6.dp)) {
-        SettingRow(title, if (on) "Her gün %02d:%02d".format(minutes / 60, minutes % 60) else "Kapalı") {
+        SettingRow(title, if (on) L("Her gün %02d:%02d", "Daily at %02d:%02d").format(minutes / 60, minutes % 60) else L("Kapalı", "Off")) {
             LuxSwitch(on, onToggle)
         }
         if (on) {
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("SAAT", style = labelStyle(p.sub))
+                Text(L("SAAT", "HOUR"), style = labelStyle(p.sub))
                 Stepper("%02d".format(minutes / 60), { onTime(((minutes / 60 + 23) % 24) * 60 + minutes % 60) }, { onTime(((minutes / 60 + 1) % 24) * 60 + minutes % 60) })
             }
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("DAKİKA", style = labelStyle(p.sub))
+                Text(L("DAKİKA", "MINUTE"), style = labelStyle(p.sub))
                 Stepper("%02d".format(minutes % 60), { onTime((minutes / 60) * 60 + (minutes % 60 + 55) % 60) }, { onTime((minutes / 60) * 60 + (minutes % 60 + 5) % 60) })
             }
         }
@@ -585,7 +650,7 @@ fun FocusScreen(st: AppState, exit: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier.fillMaxSize().background(Color.Black)
-            .semantics { contentDescription = "Odak modu. ${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun." }
+            .semantics { contentDescription = L("Odak modu. ${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun.", "Focus mode. ${d.okunus}. ${d.shown} of ${d.target}. Tap to count.") }
             .clickable(interactionSource = interaction, indication = null) { st.tap() },
         contentAlignment = Alignment.Center,
     ) {
@@ -603,20 +668,20 @@ fun FocusScreen(st: AppState, exit: () -> Unit) {
                 Box(Modifier.fillMaxWidth(d.progress).fillMaxHeight().background(GECE.goldBrush))
             }
             Spacer(Modifier.height(10.dp))
-            Text("HEDEF ${fmt(d.target)}", style = labelStyle(GECE.sub.copy(alpha = 0.75f)).copy(fontFeatureSettings = NUM_FEATURES))
+            Text(L("HEDEF ${fmt(d.target)}", "TARGET ${fmt(d.target)}"), style = labelStyle(GECE.sub.copy(alpha = 0.75f)).copy(fontFeatureSettings = NUM_FEATURES))
         }
         Box(Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(16.dp)) {
             CompositionLocalProvider(LocalPal provides GECE) {
-                GlyphButton(G.CLOSE, "Odak modundan çık", 48.dp, bordered = false, tint = GECE.sub.copy(alpha = 0.75f), onClick = exit)
+                GlyphButton(G.CLOSE, L("Odak modundan çık", "Exit focus mode"), 48.dp, bordered = false, tint = GECE.sub.copy(alpha = 0.75f), onClick = exit)
             }
         }
         Box(Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(16.dp)) {
             CompositionLocalProvider(LocalPal provides GECE) {
-                GlyphButton(G.UNDO, "Bir eksilt", 48.dp, bordered = false, tint = GECE.sub.copy(alpha = 0.75f)) { st.undo() }
+                GlyphButton(G.UNDO, L("Bir eksilt", "Undo one"), 48.dp, bordered = false, tint = GECE.sub.copy(alpha = 0.75f)) { st.undo() }
             }
         }
         Text(
-            "Ekranın her yeri sayar",
+            L("Ekranın her yeri sayar", "Tap anywhere to count"),
             style = labelStyle(GECE.sub.copy(alpha = 0.6f)),
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 30.dp),
         )
@@ -631,15 +696,15 @@ fun Intro() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             StarLogo(96.dp)
             Spacer(Modifier.height(26.dp))
-            Text("ZİKİRMATİK", style = TextStyle(brush = p.goldBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, letterSpacing = 10.sp), modifier = Modifier.padding(start = 10.dp))
+            Text(L("ZİKİRMATİK", "ZIKIRMATIK"), style = TextStyle(brush = p.goldBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, letterSpacing = 10.sp), modifier = Modifier.padding(start = 10.dp))
             Spacer(Modifier.height(10.dp))
             Ornament(120.dp)
             Spacer(Modifier.height(12.dp))
             Text(
-                "Kalpler ancak Allah'ı anmakla huzur bulur",
+                L("Kalpler ancak Allah'ı anmakla huzur bulur", "Hearts find peace only in the remembrance of Allah"),
                 style = TextStyle(fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = p.sub, textAlign = TextAlign.Center),
             )
-            Text("Ra'd, 13/28", style = labelStyle(p.sub).copy(letterSpacing = 1.5.sp), modifier = Modifier.padding(top = 6.dp))
+            Text(L("Ra'd, 13/28", "Ar-Ra'd 13:28"), style = labelStyle(p.sub).copy(letterSpacing = 1.5.sp), modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
