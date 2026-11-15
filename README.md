@@ -1,9 +1,10 @@
 # Zikirmatik
 
-Gece zümrüdü ve altın tonlarında, sade ama özenli bir Android zikirmatiği (Kotlin + Jetpack Compose).
+Siyah ve altın tonlarında, sade ama özenli bir Android zikirmatiği (Kotlin + Jetpack Compose).
 
 ## Özellikler
-- 6 hazır zikir: Arapça yazılışı, okunuşu ve anlamıyla
+- 6 hazır zikir + kendi zikirlerini ekleme, düzenleme, silme
+- Her zikre ayrı hedef (33 / 99 / 100 ya da istediğin sayı)
 - Tespih taneleriyle dolan altın halka, dokunuşta dalga ve yaylanma animasyonu
 - Hedef seçimi: 33 / 99 / 100 / 1000, tur sayacı
 - Her dokunuşta hafif titreşim, hedefe ulaşınca belirgin titreşim (kapatılabilir)

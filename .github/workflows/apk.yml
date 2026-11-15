@@ -30,7 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="zikirmatik-v1.0-${{ github.run_number }}"
+          TAG="zikirmatik-v1.1-${{ github.run_number }}"
           gh release create "$TAG" Zikirmatik.apk \
             --target "${{ github.sha }}" \
             --title "Zikirmatik ${{ github.run_number }}" \

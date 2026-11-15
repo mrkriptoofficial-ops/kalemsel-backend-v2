@@ -12,15 +12,24 @@ android {
         applicationId = "com.gezgin.zikirmatik"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    signingConfigs {
+        create("zikir") {
+            storeFile = file("zikirmatik.jks")
+            storePassword = "zikirmatik"
+            keyAlias = "zikirmatik"
+            keyPassword = "zikirmatik"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Kolay kurulum için debug anahtarıyla imzalanır. Play Store için kendi anahtarını ekle.
-            signingConfig = signingConfigs.getByName("debug")
+            // Sabit anahtar: yeni sürümler eskisinin üstüne güncelleme olarak kurulur.
+            signingConfig = signingConfigs.getByName("zikir")
         }
     }
     compileOptions {
