@@ -48,7 +48,7 @@ class Pal(
 ) {
     val goldBrush: Brush = Brush.linearGradient(listOf(goldDeep, gold, goldLight, gold, goldDeep))
     val numberBrush: Brush = Brush.verticalGradient(listOf(numTop, numMid, numBottom))
-    val faint: Color = sub.copy(alpha = 0.35f)
+    val faint: Color = sub.copy(alpha = 0.55f)
     val hair: Color = if (dark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.07f)
 }
 
@@ -69,15 +69,15 @@ val SAFIR = Pal(
 
 val GECE = Pal(
     name = "Gece", dark = true,
-    bgTop = Color(0xFF07070A), bgMid = Color(0xFF000000), bgBottom = Color(0xFF000000),
+    bgTop = Color.Black, bgMid = Color.Black, bgBottom = Color.Black,
     text = Color(0xFFF4EEE1), sub = Color(0xFFABA59B),
     gold = Color(0xFFD6B068), goldLight = Color(0xFFF2DBA5), goldDeep = Color(0xFF9A773A),
     goldText = Color(0xFFEDCD8A), onGold = Color(0xFF0A0804),
-    glassTop = Color.White.copy(alpha = 0.07f), glassBottom = Color.White.copy(alpha = 0.015f), glassStroke = Color.White.copy(alpha = 0.20f),
+    glassTop = Color.White.copy(alpha = 0.09f), glassBottom = Color.White.copy(alpha = 0.03f), glassStroke = Color.White.copy(alpha = 0.24f),
     dome0 = Color(0xFF26262E), dome1 = Color(0xFF111116), dome2 = Color(0xFF040405), domeGlow = Color(0xFF8A7444),
     beadMid = Color(0xFFD9CFBC), beadEdge = Color(0xFF4A4335),
     sheet = Color(0xFF0E0E11), sheetLine = Color(0xFFD6B068).copy(alpha = 0.30f),
-    glowA = Color(0xFFD6B068).copy(alpha = 0.06f), glowB = Color(0xFF2A2440).copy(alpha = 0.22f), glowC = Color(0xFF10223F).copy(alpha = 0.22f),
+    glowA = Color(0xFFD6B068).copy(alpha = 0.05f), glowB = Color(0xFF2A2440).copy(alpha = 0.08f), glowC = Color(0xFF10223F).copy(alpha = 0.08f),
     stars = 0.5f,
     numTop = Color(0xFFFFF8E6), numMid = Color(0xFFF2DBA5), numBottom = Color(0xFFD6B068),
 )
@@ -88,7 +88,7 @@ val FILDISI = Pal(
     text = Color(0xFF1E1912), sub = Color(0xFF5A5142),
     gold = Color(0xFFB8913F), goldLight = Color(0xFFE2C47E), goldDeep = Color(0xFF7A5A1E),
     goldText = Color(0xFF765519), onGold = Color(0xFF1E1912),
-    glassTop = Color.White.copy(alpha = 0.72f), glassBottom = Color.White.copy(alpha = 0.38f), glassStroke = Color.White,
+    glassTop = Color.White.copy(alpha = 0.78f), glassBottom = Color.White.copy(alpha = 0.55f), glassStroke = Color(0xFFB8913F).copy(alpha = 0.35f),
     dome0 = Color(0xFFFFFFFF), dome1 = Color(0xFFF5EFE3), dome2 = Color(0xFFE4D8C1), domeGlow = Color(0xFFD9B86A),
     beadMid = Color(0xFFF1E7D4), beadEdge = Color(0xFFB09A70),
     sheet = Color(0xFFFBF7EF), sheetLine = Color(0xFFB8913F).copy(alpha = 0.40f),
@@ -103,7 +103,7 @@ val LocalPal = staticCompositionLocalOf { SAFIR }
 
 // ───────────── Hazır yazı stilleri ─────────────
 fun labelStyle(c: Color) = TextStyle(
-    fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 2.4.sp, color = c,
+    fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.8.sp, color = c,
 )
 
 fun bodyStyle(c: Color) = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, color = c)

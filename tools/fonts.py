@@ -50,3 +50,8 @@ make("cormorantgaramond", "CormorantGaramond", "CormorantGaramond*.ttf",
 make("manrope", "Manrope", "Manrope*.ttf",
      [("Regular", 400), ("Medium", 500), ("SemiBold", 600), ("Bold", 700)], "manrope")
 print(sorted(os.listdir(OUT)))
+# Sayaç rakamlarının titrememesi için tabular rakam (tnum) desteğini doğrula
+for fn in ("cormorant_regular.ttf", "manrope_regular.ttf"):
+    f = TTFont(os.path.join(OUT, fn))
+    tags = sorted({r.FeatureTag for r in f["GSUB"].table.FeatureList.FeatureRecord}) if "GSUB" in f else []
+    print(fn, "tnum" in tags, "lnum" in tags, tags)

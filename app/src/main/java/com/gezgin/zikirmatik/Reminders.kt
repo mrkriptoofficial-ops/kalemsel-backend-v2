@@ -98,6 +98,7 @@ class ZikirWidget : AppWidgetProvider() {
         super.onReceive(ctx, intent)
         if (intent.action == ACTION_INC) {
             val repo = Repo(ctx)
+            if (repo.loadSession() != null) return
             val z = repo.widgetIncrement()
             val s = repo.loadSettings()
             if (z != null && s.haptic > 0) {
@@ -133,7 +134,21 @@ class ZikirWidget : AppWidgetProvider() {
                 z.count > 0 && z.count % z.target == 0 -> z.target
                 else -> z.count % z.target
             }
+            val session = repo.loadSession()
+            val openApp = PendingIntent.getActivity(
+                ctx, 1, Intent(ctx, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
             return RemoteViews(ctx.packageName, R.layout.widget_zikir).apply {
+                if (session != null) {
+                    // Tesbihat sürerken widget saymaz; karışıklığı önlemek için uygulamayı açar
+                    setTextViewText(R.id.w_name, "Tesbihat sürüyor")
+                    setTextViewText(R.id.w_count, "${session.count}")
+                    setTextViewText(R.id.w_target, "devam için dokun")
+                    setOnClickPendingIntent(R.id.w_tap, openApp)
+                    setOnClickPendingIntent(R.id.w_open, openApp)
+                    return@apply
+                }
                 setTextViewText(R.id.w_name, z.okunus)
                 setTextViewText(R.id.w_count, shown.toString())
                 setTextViewText(R.id.w_target, "/ ${z.target}")
@@ -144,13 +159,7 @@ class ZikirWidget : AppWidgetProvider() {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     ),
                 )
-                setOnClickPendingIntent(
-                    R.id.w_open,
-                    PendingIntent.getActivity(
-                        ctx, 1, Intent(ctx, MainActivity::class.java),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                    ),
-                )
+                setOnClickPendingIntent(R.id.w_open, openApp)
             }
         }
     }

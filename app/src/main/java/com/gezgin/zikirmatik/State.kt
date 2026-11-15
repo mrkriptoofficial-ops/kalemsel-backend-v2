@@ -69,6 +69,10 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         bestStreak = maxOf(repo.bestStreak, streakOf(history))
         virds.clear(); virds.addAll(repo.loadVirds())
         session = repo.loadSession()?.takeIf { s -> virds.any { it.id == s.virdId } }
+        // Uygulama, adım tamamlandığı anda kapandıysa takılı kalmasın
+        session?.let { s ->
+            virds.firstOrNull { it.id == s.virdId }?.steps?.getOrNull(s.step)?.let { if (s.count >= it.target) advance(s.virdId, s.step) }
+        }
     }
 
     /** Widget gibi dış kaynakların değişikliklerini al. */
@@ -139,27 +143,30 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         if (n % z.target == 0) celebrateKey++ else pulseKey++
     }
 
+    /** Kullanıcı titreşimi kapattıysa hiçbir yerde titreşme. */
+    private fun soft(level: Int = 1) = fb.tap(if (settings.haptic == 0) 0 else level)
+
     private fun feedback(n: Int, target: Int) {
+        fb.click(settings.sound)   // ses, titreşimden daha geç algılanır: önce başlat
         val h = settings.haptic
         when {
             n % target == 0 -> fb.complete(h)
             settings.milestone > 0 && n % settings.milestone == 0 -> fb.milestone(h)
             else -> fb.tap(h)
         }
-        fb.click(settings.sound)
     }
 
     fun undo() {
         val s = session
         if (s != null) {
             if (s.count > 0) {
-                session = s.copy(count = s.count - 1); repo.saveSession(session); addHistory(-1); fb.tap(1)
+                session = s.copy(count = s.count - 1); repo.saveSession(session); addHistory(-1); soft()
             }
             return
         }
-        val z = current
+        val z = current.let { if (settings.stopAtTarget && it.count > it.target) it.copy(count = it.target) else it }
         if (z.count > 0) {
-            replace(z.copy(count = z.count - 1)); addHistory(-1); fb.tap(1)
+            replace(z.copy(count = z.count - 1)); addHistory(-1); soft()
         } else fb.error(settings.haptic)
     }
 
@@ -193,20 +200,35 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         val id = zikirs[(currentIndex + delta + n) % n].id
         selId = id
         repo.selId = id
-        fb.tap(1)
+        soft()
     }
 
-    fun setTarget(t: Int) = replace(current.copy(target = t.coerceIn(1, 1_000_000)))
+    fun setTarget(t: Int) {
+        val nt = t.coerceIn(1, 1_000_000)
+        val z = current
+        replace(z.copy(target = nt, count = if (settings.stopAtTarget) z.count.coerceAtMost(nt) else z.count))
+    }
 
     fun resetCurrent() {
         val s = session
-        if (s != null) { session = s.copy(count = 0); repo.saveSession(session); return }
+        if (s != null) {
+            if (s.count == 0) return
+            session = s.copy(count = 0); repo.saveSession(session)
+            scope.launch {
+                val r = snack.showSnackbar("Adım sıfırlandı", "Geri al", duration = SnackbarDuration.Short)
+                val now = session
+                if (r == SnackbarResult.ActionPerformed && now != null && now.virdId == s.virdId && now.step == s.step) {
+                    session = now.copy(count = now.count + s.count); repo.saveSession(session)
+                }
+            }
+            return
+        }
         val prev = current
         if (prev.count == 0) return
         replace(prev.copy(count = 0))
         scope.launch {
             val r = snack.showSnackbar("${prev.okunus} sıfırlandı", "Geri al", duration = SnackbarDuration.Short)
-            if (r == SnackbarResult.ActionPerformed) zikirs.firstOrNull { it.id == prev.id }?.let { replace(it.copy(count = prev.count)) }
+            if (r == SnackbarResult.ActionPerformed) zikirs.firstOrNull { it.id == prev.id }?.let { replace(it.copy(count = it.count + prev.count)) }
         }
     }
 
@@ -246,7 +268,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         zikirs[j] = zikirs[i]
         zikirs[i] = tmp
         repo.saveZikirs(zikirs)
-        fb.tap(1)
+        soft()
     }
 
     fun hasLib(item: LibItem) = zikirs.any { it.okunus == item.zikirOkunus || (item.arapca.isNotBlank() && it.arapca == item.arapca) }
@@ -256,7 +278,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         val z = Zikir(System.currentTimeMillis(), item.arapca, item.zikirOkunus, item.anlam, item.fazilet, 0, item.target)
         zikirs.add(z)
         repo.saveZikirs(zikirs)
-        fb.tap(2)
+        soft(2)
         scope.launch { snack.showSnackbar("${item.zikirOkunus} zikirlerine eklendi", duration = SnackbarDuration.Short) }
     }
 
@@ -266,7 +288,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         session = Session(v.id, 0, 0)
         repo.saveSession(session)
         cardDir = 1
-        fb.tap(2)
+        soft(2)
     }
 
     fun endSession() {
@@ -275,13 +297,14 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     fun skipStep() {
         val s = session ?: return
-        advance(s.virdId, s.step)
+        advance(s.virdId, s.step, skipping = true)
     }
 
-    private fun advance(vid: Long, fromStep: Int) {
+    private fun advance(vid: Long, fromStep: Int, skipping: Boolean = false) {
         val s = session ?: return
         if (s.virdId != vid || s.step != fromStep) return
         val v = virds.firstOrNull { it.id == vid } ?: run { endSession(); return }
+        if (!skipping && s.count < (v.steps.getOrNull(fromStep)?.target ?: 0)) return
         cardDir = 1
         if (s.step + 1 < v.steps.size) {
             session = Session(vid, s.step + 1, 0)
@@ -297,7 +320,11 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         else {
             val i = virds.indexOfFirst { it.id == existing.id }
             if (i >= 0) virds[i] = existing.copy(name = name, steps = steps)
-            if (session?.virdId == existing.id) endSession()
+            val s = session
+            if (s != null && s.virdId == existing.id) {
+                if (s.step >= steps.size) endSession()
+                else if (s.count > steps[s.step].target) { session = s.copy(count = steps[s.step].target); repo.saveSession(session) }
+            }
         }
         repo.saveVirds(virds)
     }

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package com.gezgin.zikirmatik
 
 import androidx.compose.foundation.clickable
@@ -31,7 +33,7 @@ sealed interface SheetKind {
 fun MenuSheet(onDismiss: () -> Unit, go: (Scr) -> Unit, newZikir: () -> Unit) {
     val items = listOf(
         Triple(G.BEADS, "Tesbihat", "Sıralı zikir akışı") to { go(Scr.TESBIHAT) },
-        Triple(G.BOOK, "Kütüphane", "Esmâ, salavat, günlük") to { go(Scr.KUTUPHANE) },
+        Triple(G.BOOK, "Kütüphane", "Esmâ, salavât, günlük") to { go(Scr.KUTUPHANE) },
         Triple(G.CHART, "İstatistik", "Seri, takvim, grafik") to { go(Scr.ISTATISTIK) },
         Triple(G.FOCUS, "Odak Modu", "Sadece sayı, karanlık") to { go(Scr.ODAK) },
         Triple(G.PLUS, "Yeni Zikir", "Kendi zikrini ekle") to newZikir,
@@ -67,8 +69,8 @@ fun TargetSheet(initial: Int, onSave: (Int) -> Unit, onDismiss: () -> Unit) {
     LuxSheet("Hedef Belirle", onDismiss) {
         LuxField(text, { s -> text = s.filter { it.isDigit() }.take(7) }, "Hedef sayı", number = true)
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(7, 11, 41, 300, 500, 1000).forEach { t -> GoldChip("$t", text == t.toString()) { text = t.toString() } }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf(33, 99, 100, 7, 11, 41, 300, 500, 1000).forEach { t -> GoldChip("$t", text == t.toString()) { text = t.toString() } }
         }
         Spacer(Modifier.height(20.dp))
         PrimaryButton("Kaydet", Modifier.fillMaxWidth(), enabled = ok, glyph = G.CHECK) { onSave(v!!) }
@@ -118,11 +120,11 @@ fun VirdEditSheet(st: AppState, initial: Vird?, onDismiss: () -> Unit) {
                     Text("${i + 1}", style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 19.sp, color = p.goldText, fontFeatureSettings = NUM_FEATURES))
                     Spacer(Modifier.width(10.dp))
                     Text(s.okunus, style = bodyStyle(p.text), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    GlyphButton(G.LEFT, "Azalt", 32.dp, bordered = false) { steps[i] = s.copy(target = (s.target - if (s.target > 33) 10 else 1).coerceAtLeast(1)) }
+                    GlyphButton(G.MINUS, "Azalt", 40.dp, bordered = false) { steps[i] = s.copy(target = (s.target - if (s.target > 100) 10 else 1).coerceAtLeast(1)) }
                     Text(fmt(s.target), style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = p.text, fontFeatureSettings = NUM_FEATURES, textAlign = TextAlign.Center), modifier = Modifier.widthIn(min = 40.dp))
-                    GlyphButton(G.RIGHT, "Artır", 32.dp, bordered = false) { steps[i] = s.copy(target = s.target + if (s.target >= 33) 10 else 1) }
-                    GlyphButton(G.UP, "Yukarı", 32.dp, bordered = false) { if (i > 0) { val tmp = steps[i - 1]; steps[i - 1] = s; steps[i] = tmp } }
-                    GlyphButton(G.CLOSE, "Kaldır", 32.dp, bordered = false) { steps.removeAt(i) }
+                    GlyphButton(G.PLUS, "Artır", 40.dp, bordered = false) { steps[i] = s.copy(target = s.target + if (s.target >= 100) 10 else 1) }
+                    GlyphButton(G.UP, "Yukarı", 40.dp, bordered = false) { if (i > 0) { val tmp = steps[i - 1]; steps[i - 1] = s; steps[i] = tmp } }
+                    GlyphButton(G.CLOSE, "Kaldır", 40.dp, bordered = false) { steps.removeAt(i) }
                 }
             }
             if (picking) {

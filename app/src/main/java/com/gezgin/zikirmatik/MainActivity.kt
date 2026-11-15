@@ -20,6 +20,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -97,7 +99,7 @@ fun ZikirApp(act: MainActivity) {
 
     // Ses tuşları: sadece sayaç ve odak ekranında, panel kapalıyken
     val volumeHandler by rememberUpdatedState {
-        if (st.settings.volumeKeys && sheet == null && (screen == Scr.SAYAC || screen == Scr.ODAK) && !intro) { st.tap(); true } else false
+        if (st.settings.volumeKeys && sheet == null && (screen == Scr.SAYAC || screen == Scr.ODAK)) { st.tap(); true } else false
     }
     DisposableEffect(Unit) {
         act.onVolumeKey = { volumeHandler() }
@@ -168,7 +170,12 @@ fun ZikirApp(act: MainActivity) {
                     }
                 }
                 SnackbarHost(st.snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) { LuxSnack(it) }
-                AnimatedVisibility(intro, enter = fadeIn(), exit = fadeOut(tween(700))) { Intro() }
+                AnimatedVisibility(intro, enter = fadeIn(), exit = fadeOut(tween(700))) {
+                    // Açılış ekranındaki dokunuşlar alttaki sayaca geçmesin; dokununca kapanır
+                    Box(
+                        Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { intro = false },
+                    ) { Intro() }
+                }
             }
 
             when (val k = sheet) {

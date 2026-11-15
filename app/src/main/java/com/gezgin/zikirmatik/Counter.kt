@@ -20,9 +20,10 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,14 +38,17 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -75,6 +79,7 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
                 Text(
                     "ZİKİRMATİK",
                     style = TextStyle(brush = p.goldBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 7.sp),
+                    modifier = Modifier.padding(start = 7.dp),
                 )
                 Spacer(Modifier.height(4.dp))
                 Ornament(88.dp)
@@ -86,17 +91,27 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
         ZikirCard(st, d)
 
         // Dokunma alanı: kubbe ve çevresindeki tüm boşluk sayar
-        val interaction = remember { MutableInteractionSource() }
-        val pressed by interaction.collectIsPressedAsState()
+        var pressed by remember { mutableStateOf(false) }
         Box(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = "Say. ${d.okunus}, ${d.shown} / ${d.target}"
+                    contentDescription = "${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun."
                     role = Role.Button
+                    liveRegion = LiveRegionMode.Polite
+                    onClick { st.tap(); true }
                 }
-                .clickable(interactionSource = interaction, indication = null) { st.tap() },
+                // Parmak değdiği an sayar (bırakmayı beklemez): gecikmesiz his
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        pressed = true
+                        st.tap()
+                        waitForUpOrCancellation()
+                        pressed = false
+                    }
+                },
             contentAlignment = Alignment.Center,
         ) {
             Dome(d, pressed, st.pulseKey, st.celebrateKey, st.shakeKey, Modifier.fillMaxSize().padding(vertical = 8.dp))
@@ -153,11 +168,12 @@ private fun ZikirCard(st: AppState, d: Disp) {
                             Text(
                                 z.arapca,
                                 style = TextStyle(
-                                    fontFamily = Arabic, fontSize = if (z.arapca.length > 40) 22.sp else 31.sp,
-                                    lineHeight = if (z.arapca.length > 40) 40.sp else 54.sp,
+                                    fontFamily = Arabic,
+                                    fontSize = when { z.arapca.length > 70 -> 20.sp; z.arapca.length > 40 -> 24.sp; else -> 31.sp },
+                                    lineHeight = when { z.arapca.length > 70 -> 35.sp; z.arapca.length > 40 -> 42.sp; else -> 54.sp },
                                     color = p.text, textAlign = TextAlign.Center, textDirection = TextDirection.Rtl,
                                 ),
-                                maxLines = 3,
+                                maxLines = 5,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(6.dp))
@@ -181,8 +197,8 @@ private fun ZikirCard(st: AppState, d: Disp) {
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 z.fazilet,
-                                style = TextStyle(fontFamily = Display, fontStyle = FontStyle.Italic, fontSize = 15.sp, lineHeight = 19.sp, color = p.sub, textAlign = TextAlign.Center),
-                                maxLines = 2,
+                                style = TextStyle(fontFamily = Sans, fontSize = 13.5.sp, lineHeight = 19.sp, color = p.sub, textAlign = TextAlign.Center),
+                                maxLines = 4,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -242,25 +258,32 @@ private fun VirdHeader(st: AppState, d: Disp) {
 private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, shakeKey: Int, modifier: Modifier) {
     val p = LocalPal.current
     val shown = d.shown
+    val reduce = rememberReducedMotion()
 
     val prog = remember { Animatable(0f) }
     LaunchedEffect(shown, d.target, d.key) {
         val t = d.progress
         if (t < prog.value - 0.4f) prog.snapTo(0f)
-        prog.animateTo(t, spring(stiffness = Spring.StiffnessLow))
+        if (reduce) prog.snapTo(t) else prog.animateTo(t, spring(stiffness = Spring.StiffnessMediumLow))
     }
     val beadStep = 360f / 33f
     val rot = remember { Animatable(0f) }
     LaunchedEffect(d.count, d.key) {
         val t = d.count * beadStep
-        if (abs(t - rot.value) > 400f) rot.snapTo(t) else rot.animateTo(t, spring(dampingRatio = 0.72f, stiffness = 340f))
+        if (reduce || abs(t - rot.value) > 400f) rot.snapTo(t) else rot.animateTo(t, spring(dampingRatio = 0.62f, stiffness = 520f))
     }
     val pulse = remember { Animatable(1f) }
-    LaunchedEffect(pulseKey) { if (pulseKey > 0) { pulse.snapTo(0f); pulse.animateTo(1f, tween(720, easing = FastOutSlowInEasing)) } }
+    LaunchedEffect(pulseKey) {
+        if (pulseKey > 0 && !reduce) {
+            // Hızlı sayarken parlamayı baştan başlatıp yanıp sönme etkisi yaratma
+            pulse.snapTo(if (pulse.value >= 1f) 0f else minOf(pulse.value, 0.25f))
+            pulse.animateTo(1f, tween(480, easing = LinearOutSlowInEasing))
+        }
+    }
     val burst = remember { Animatable(1f) }
     LaunchedEffect(celebrateKey) { if (celebrateKey > 0) { burst.snapTo(0f); burst.animateTo(1f, tween(1700, easing = LinearOutSlowInEasing)) } }
     val shake = remember { Animatable(0f) }
-    LaunchedEffect(shakeKey) { if (shakeKey > 0) for (x in listOf(9f, -7f, 5f, -3f, 0f)) shake.animateTo(x, tween(45)) }
+    LaunchedEffect(shakeKey) { if (shakeKey > 0 && !reduce) for (x in listOf(9f, -7f, 5f, -3f, 0f)) shake.animateTo(x, tween(45)) }
     val press by animateFloatAsState(if (pressed) 1f else 0f, spring(stiffness = 900f), label = "bas")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
@@ -279,50 +302,56 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, prog.value, rot.value, pulse.value, burst.value, press) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val done = burst.value < 1f
-                Text(
-                    "TAMAMLANDI",
-                    style = labelStyle(p.goldText).copy(fontSize = small, letterSpacing = 3.sp),
-                    modifier = Modifier.graphicsLayer { alpha = if (done) sin(PI.toFloat() * burst.value).coerceIn(0f, 1f) else 0f },
-                )
                 AnimatedContent(
                     targetState = shown,
                     transitionSpec = {
-                        val up = targetState > initialState
-                        (slideInVertically(tween(260)) { if (up) it / 3 else -it / 3 } + fadeIn(tween(240))) togetherWith
-                            (slideOutVertically(tween(200)) { if (up) -it / 3 else it / 3 } + fadeOut(tween(150))) using SizeTransform(clip = false)
+                        if (reduce) {
+                            fadeIn(tween(90)) togetherWith fadeOut(tween(90))
+                        } else {
+                            val up = targetState > initialState
+                            (slideInVertically(tween(160)) { if (up) it / 5 else -it / 5 } + fadeIn(tween(140))) togetherWith
+                                (slideOutVertically(tween(110)) { if (up) -it / 5 else it / 5 } + fadeOut(tween(110))) using SizeTransform(clip = false)
+                        }
                     },
                     label = "sayı",
                 ) { v ->
                     Text(
                         "$v",
                         style = TextStyle(
-                            brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.Light,
+                            brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.Normal,
                             fontSize = numSize, fontFeatureSettings = NUM_FEATURES,
-                            shadow = if (p.dark) Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 4f), 18f) else null,
+                            shadow = if (p.dark) Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 4f), 18f) else Shadow(p.goldDeep.copy(alpha = 0.18f), Offset(0f, 2f), 8f),
                         ),
                     )
                 }
                 Text(
                     "HEDEF  ${fmt(d.target)}",
                     style = labelStyle(p.sub).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
+                    modifier = Modifier.padding(start = 2.dp),
                 )
-                if (d.laps > 0) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "${d.laps}. TUR",
-                        style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
-                    )
-                }
+            }
+            Text(
+                "TAMAMLANDI",
+                style = labelStyle(p.goldText).copy(fontSize = small, letterSpacing = 3.sp),
+                modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.235f)).padding(start = 3.dp)
+                    .graphicsLayer { val b = burst.value; alpha = if (b < 1f) sin(PI.toFloat() * b).coerceIn(0f, 1f) else 0f },
+            )
+            if (d.laps > 0) {
+                Text(
+                    "${d.laps}. TUR",
+                    style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
+                    modifier = Modifier.align(Alignment.Center).offset(y = side * 0.235f)
+                        .clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
+                )
             }
         }
     }
 }
 
-private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, burst: Float, press: Float) {
+private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
     val c = center
     val k = size.minDimension / 320.dp.toPx()
     val rOuter = size.minDimension / 2 - 10.dp.toPx() * k
@@ -354,22 +383,22 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
 
     // 33 tespih tanesi (her dokunuşta bir tane kayar)
     val stepDeg = 360f / 33f
+    // Tek fırça, her taneye kaydırılarak kullanılır (her karede 33 fırça oluşturmaz)
+    val beadBrush = Brush.radialGradient(
+        listOf(Color.White.copy(alpha = 0.95f), p.beadMid, p.beadEdge),
+        center = Offset(-beadR * 0.35f, -beadR * 0.40f),
+        radius = beadR * 1.35f,
+    )
+    val beadShadow = Color.Black.copy(alpha = if (p.dark) 0.35f else 0.12f)
     for (i in 0 until 33) {
         val ang = -90f + i * stepDeg + rot
         var rel = ((ang + 90f) % 360f + 360f) % 360f
         if (rel > 180f) rel -= 360f
         val near = (1f - abs(rel) / stepDeg).coerceIn(0f, 1f)
         val pos = polar(rBeads, ang)
-        drawCircle(Color.Black.copy(alpha = if (p.dark) 0.35f else 0.12f), beadR, Offset(pos.x, pos.y + beadR * 0.45f))
+        drawCircle(beadShadow, beadR, Offset(pos.x, pos.y + beadR * 0.45f))
         if (near > 0f) drawCircle(p.goldLight.copy(alpha = 0.45f * near), beadR * 2.3f, pos)
-        drawCircle(
-            Brush.radialGradient(
-                listOf(Color.White.copy(alpha = 0.95f), p.beadMid, p.beadEdge),
-                center = Offset(pos.x - beadR * 0.35f, pos.y - beadR * 0.40f),
-                radius = beadR * 1.35f,
-            ),
-            beadR, pos,
-        )
+        translate(pos.x, pos.y) { drawCircle(beadBrush, beadR, Offset.Zero) }
         if (near > 0f) drawCircle(p.goldLight.copy(alpha = 0.55f * near), beadR, pos)
         drawCircle(Color.White.copy(alpha = 0.85f), beadR * 0.24f, Offset(pos.x - beadR * 0.35f, pos.y - beadR * 0.40f))
     }
@@ -400,7 +429,7 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
         radius = rDisc, center = c,
     )
     // Kesme yüzeyler
-    val facet = if (p.dark) Color.White.copy(alpha = 0.055f) else p.goldDeep.copy(alpha = 0.07f)
+    val facet = if (p.dark) Color.White.copy(alpha = 0.04f) else p.goldDeep.copy(alpha = 0.06f)
     val rf = rDisc * 0.64f
     val oct = Path()
     for (j in 0..7) {
@@ -416,10 +445,10 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
     // Prizma kenar
     drawCircle(
         Brush.sweepGradient(
-            listOf(Color(0xFFF3D9A4), Color(0xFFF2B8C6), Color(0xFFB9A8F0), Color(0xFF8EC3F2), Color(0xFFE9F1FF), Color(0xFFF3D9A4)),
+            listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight),
             center = c,
         ),
-        radius = rDisc, center = c, style = Stroke(1.7.dp.toPx() * k), alpha = if (p.dark) 0.9f else 0.75f,
+        radius = rDisc, center = c, style = Stroke(1.7.dp.toPx() * k), alpha = if (p.dark) 0.85f else 0.9f,
     )
 
     // Basma: kubbe hafifçe kararır
@@ -436,13 +465,13 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
     }
 
     // İlerleme yayı
-    drawCircle(if (p.dark) Color.White.copy(alpha = 0.07f) else p.goldDeep.copy(alpha = 0.10f), rArc, c, style = Stroke(stroke))
+    drawCircle(if (p.dark) Color.White.copy(alpha = 0.10f) else p.goldDeep.copy(alpha = 0.12f), rArc, c, style = Stroke(stroke))
     val sweep = 360f * prog
     if (sweep > 0.4f) {
         val tl = Offset(c.x - rArc, c.y - rArc)
         val sz = Size(rArc * 2, rArc * 2)
         rotate(-90f, c) {
-            drawArc(p.gold.copy(alpha = 0.18f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 3.2f, cap = StrokeCap.Round))
+            drawArc(p.gold.copy(alpha = 0.14f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 2.2f, cap = StrokeCap.Round))
             drawArc(
                 Brush.sweepGradient(0f to p.goldDeep, 0.5f to p.gold, 1f to p.goldLight, center = c),
                 0f, sweep, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round),
@@ -465,16 +494,13 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
             size = Size(rDisc * 1.2f, rDisc * 0.55f),
         )
     }
-    val spark = polar(rDisc * 0.80f, -130f)
-    drawCircle(Color.White.copy(alpha = 0.25f), 4.dp.toPx() * k, spark)
-    drawCircle(Color.White.copy(alpha = 0.9f), 1.7.dp.toPx() * k, spark)
 
     // Hedef kutlaması: altın parçacıklar
     if (burst < 1f) {
         val a = 1f - burst
         drawCircle(p.goldLight.copy(alpha = a * 0.7f), rArc, c, style = Stroke(stroke * (1f + 2.5f * burst)))
         val e = 1f - (1f - burst) * (1f - burst)
-        for (j in 0 until 28) {
+        if (!reduce) for (j in 0 until 28) {
             val ang = j * (360f / 28f) + (j % 3) * 4f
             val dist = rDisc * 0.85f + (rOuter * 1.08f - rDisc * 0.85f) * e * (0.7f + 0.3f * ((j * 7) % 5) / 4f)
             val q = polar(dist, ang)
@@ -494,15 +520,10 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
 @Composable
 private fun ControlRow(st: AppState, d: Disp, sheet: (SheetKind) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        GlyphButton(G.UNDO, "Bir geri al (eksi bir)") { st.undo() }
+        GlyphButton(G.UNDO, "Bir eksilt") { st.undo() }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             if (d.vird == null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val presets = listOf(33, 99, 100)
-                    presets.forEach { t -> GoldChip("$t", d.target == t, modifier = Modifier.widthIn(min = 52.dp)) { st.setTarget(t) } }
-                    val custom = d.target !in presets
-                    GoldChip(if (custom) fmt(d.target) else "Özel", custom, G.EDIT) { sheet(SheetKind.Target) }
-                }
+                GoldChip("Hedef  ${fmt(d.target)}", false, G.EDIT) { sheet(SheetKind.Target) }
             } else {
                 GoldChip("Sonraki adım", false, G.SKIP) { st.skipStep() }
             }
@@ -538,7 +559,7 @@ private fun StatStrip(st: AppState) {
 private fun Stat(label: String, value: String) {
     val p = LocalPal.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = labelStyle(p.sub).copy(fontSize = 9.5.sp, fontFeatureSettings = NUM_FEATURES))
+        Text(label, style = labelStyle(p.sub).copy(fontSize = 10.5.sp, letterSpacing = 1.4.sp, fontFeatureSettings = NUM_FEATURES))
         Spacer(Modifier.height(2.dp))
         Text(value, style = TextStyle(brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, fontFeatureSettings = NUM_FEATURES))
     }

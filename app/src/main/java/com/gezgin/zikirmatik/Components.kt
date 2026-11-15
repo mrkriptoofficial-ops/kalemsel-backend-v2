@@ -3,12 +3,7 @@
 package com.gezgin.zikirmatik
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,6 +33,10 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.SystemClock
+import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.sin
 
 // ───────────── Cam yüzey ─────────────
 fun Modifier.glass(p: Pal, shape: Shape, strong: Boolean = false): Modifier = this
@@ -55,10 +55,29 @@ fun Modifier.glass(p: Pal, shape: Shape, strong: Boolean = false): Modifier = th
     )
 
 // ───────────── Gökyüzü / zemin ─────────────
+/** Sistemde "animasyonları kaldır" açıksa true. */
+@Composable
+fun rememberReducedMotion(): Boolean {
+    val ctx = LocalContext.current
+    return remember {
+        android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+}
+
 @Composable
 fun Sky(p: Pal) {
-    val breath = rememberInfiniteTransition(label = "nefes")
-    val a by breath.animateFloat(0.75f, 1f, infiniteRepeatable(tween(9000), RepeatMode.Reverse), label = "a")
+    // Yavaş "nefes": saniyede 10 kare yeterli; ekran sürekli 120 Hz çizmez, pil korunur.
+    var a by remember { mutableFloatStateOf(0.9f) }
+    val reduce = rememberReducedMotion()
+    LaunchedEffect(reduce, p.stars) {
+        if (reduce || p.stars < 1f) { a = 1f; return@LaunchedEffect }
+        val t0 = SystemClock.uptimeMillis()
+        while (true) {
+            val t = ((SystemClock.uptimeMillis() - t0) % 18000L) / 18000f
+            a = 0.85f + 0.15f * sin(2f * PI.toFloat() * t)
+            delay(100)
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(Brush.verticalGradient(listOf(p.bgTop, p.bgMid, p.bgBottom)))
@@ -113,14 +132,14 @@ fun Ornament(width: Dp = 150.dp, alpha: Float = 1f) {
 @Composable
 fun StarLogo(size: Dp, modifier: Modifier = Modifier) {
     val p = LocalPal.current
-    Canvas(modifier.size(size)) {
+    Canvas(modifier.size(size).graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         val c = center
         val h = this.size.minDimension * 0.30f
         val tl = Offset(c.x - h, c.y - h)
         val sq = androidx.compose.ui.geometry.Size(h * 2, h * 2)
         drawRect(p.goldBrush, tl, sq)
         rotate(45f, c) { drawRect(p.goldBrush, tl, sq) }
-        drawCircle(p.bgMid, h * 0.52f, c)
+        drawCircle(Color.Black, h * 0.52f, c, blendMode = BlendMode.Clear)
         drawCircle(p.goldLight, h * 0.22f, c)
         drawCircle(p.gold.copy(alpha = 0.5f), this.size.minDimension * 0.47f, c, style = Stroke(1.dp.toPx()))
     }
@@ -128,7 +147,7 @@ fun StarLogo(size: Dp, modifier: Modifier = Modifier) {
 
 // ───────────── Düğmeler ─────────────
 @Composable
-fun GlyphButton(g: G, desc: String, size: Dp = 44.dp, bordered: Boolean = true, tint: Color? = null, onClick: () -> Unit) {
+fun GlyphButton(g: G, desc: String, size: Dp = 48.dp, bordered: Boolean = true, tint: Color? = null, onClick: () -> Unit) {
     val p = LocalPal.current
     Box(
         Modifier
@@ -149,7 +168,7 @@ fun GoldChip(label: String, selected: Boolean, glyph: G? = null, modifier: Modif
     val shape = RoundedCornerShape(50)
     Row(
         modifier
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
             .clip(shape)
             .then(if (selected) Modifier.background(p.goldBrush) else Modifier.border(1.dp, p.gold.copy(alpha = 0.45f), shape))
             .clickable(role = Role.Button, onClick = onClick)
@@ -185,8 +204,9 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        if (glyph != null) { Glyph(glyph, if (enabled) p.onGold else p.faint, 16.dp); Spacer(Modifier.width(8.dp)) }
-        Text(text, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 0.8.sp, color = if (enabled) p.onGold else p.faint))
+        val off = p.sub.copy(alpha = 0.6f)
+        if (glyph != null) { Glyph(glyph, if (enabled) p.onGold else off, 16.dp); Spacer(Modifier.width(8.dp)) }
+        Text(text, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 14.sp, letterSpacing = 0.8.sp, color = if (enabled) p.onGold else off))
     }
 }
 
@@ -243,6 +263,7 @@ fun LuxField(value: String, onChange: (String) -> Unit, label: String, number: B
             color = p.text,
             fontFamily = if (rtl) Arabic else Sans,
             fontSize = if (rtl) 22.sp else 16.sp,
+            lineHeight = if (rtl) 38.sp else 22.sp,
             textDirection = if (rtl) TextDirection.Rtl else TextDirection.Content,
         ),
         shape = RoundedCornerShape(16.dp),
@@ -286,13 +307,13 @@ fun SettingRow(title: String, desc: String? = null, trailing: @Composable () -> 
 fun Stepper(value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     val p = LocalPal.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        GlyphButton(G.LEFT, "Azalt", 36.dp, onClick = onMinus)
+        GlyphButton(G.MINUS, "Azalt", 44.dp, onClick = onMinus)
         Text(
             value,
             style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = p.text, fontFeatureSettings = NUM_FEATURES, textAlign = TextAlign.Center),
             modifier = Modifier.widthIn(min = 72.dp),
         )
-        GlyphButton(G.RIGHT, "Artır", 36.dp, onClick = onPlus)
+        GlyphButton(G.PLUS, "Artır", 44.dp, onClick = onPlus)
     }
 }
 
@@ -311,7 +332,7 @@ fun ScreenFrame(title: String, onBack: () -> Unit, action: (@Composable () -> Un
                 Spacer(Modifier.height(2.dp))
                 Ornament(80.dp)
             }
-            if (action != null) action() else Spacer(Modifier.size(44.dp))
+            if (action != null) action() else Spacer(Modifier.size(48.dp))
         }
         content()
     }
