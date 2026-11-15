@@ -37,6 +37,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.ceil
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
@@ -63,7 +67,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private val TR = Locale.forLanguageTag("tr")
-fun fmt(n: Int): String = String.format(TR, "%,d", n)
+fun fmt(n: Int): String = String.format(I18n.locale, "%,d", n)
 
 @Composable
 fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
@@ -75,17 +79,17 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
     ) {
         // Üst çubuk
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlyphButton(G.LIST, "Zikirlerim") { go(Scr.ZIKIRLER) }
+            GlyphButton(G.LIST, L("Zikirlerim", "My Dhikr")) { go(Scr.ZIKIRLER) }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "ZİKİRMATİK",
+                    L("ZİKİRMATİK", "ZIKIRMATIK"),
                     style = TextStyle(brush = p.goldBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = 7.sp),
                     modifier = Modifier.padding(start = 7.dp),
                 )
                 Spacer(Modifier.height(4.dp))
                 Ornament(88.dp)
             }
-            GlyphButton(G.GRID, "Menü") { sheet(SheetKind.Menu) }
+            GlyphButton(G.GRID, L("Menü", "Menu")) { sheet(SheetKind.Menu) }
         }
         Spacer(Modifier.height(16.dp))
 
@@ -98,7 +102,7 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = "${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun."
+                    contentDescription = L("${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun.", "${d.okunus}. ${d.shown} of ${d.target}. Tap to count.")
                     role = Role.Button
                     liveRegion = LiveRegionMode.Polite
                     onClick { st.tap(); true }
@@ -152,7 +156,7 @@ private fun ZikirCard(st: AppState, d: Disp) {
         ) {
             if (d.vird != null) VirdHeader(st, d)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (d.vird == null && n > 1) GlyphButton(G.LEFT, "Önceki zikir", 40.dp, bordered = false) { st.step(-1) } else Spacer(Modifier.width(12.dp))
+                if (d.vird == null && n > 1) GlyphButton(G.LEFT, L("Önceki zikir", "Previous dhikr"), 40.dp, bordered = false) { st.step(-1) } else Spacer(Modifier.width(12.dp))
                 AnimatedContent(
                     targetState = d,
                     contentKey = { it.key },
@@ -205,7 +209,7 @@ private fun ZikirCard(st: AppState, d: Disp) {
                         }
                     }
                 }
-                if (d.vird == null && n > 1) GlyphButton(G.RIGHT, "Sonraki zikir", 40.dp, bordered = false) { st.step(1) } else Spacer(Modifier.width(12.dp))
+                if (d.vird == null && n > 1) GlyphButton(G.RIGHT, L("Sonraki zikir", "Next dhikr"), 40.dp, bordered = false) { st.step(1) } else Spacer(Modifier.width(12.dp))
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -250,7 +254,7 @@ private fun VirdHeader(st: AppState, d: Disp) {
             }
         }
         Text("  ${d.step + 1}/${v.steps.size}", style = labelStyle(p.sub).copy(fontFeatureSettings = NUM_FEATURES))
-        GlyphButton(G.CLOSE, "Tesbihatı bitir", 38.dp, bordered = false) { st.endSession() }
+        GlyphButton(G.CLOSE, L("Tesbihatı bitir", "End sequence"), 38.dp, bordered = false) { st.endSession() }
     }
 }
 
@@ -260,6 +264,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     val p = LocalPal.current
     val shown = d.shown
     val reduce = rememberReducedMotion()
+    val sprites = remember { BeadSprites() }
 
     val prog = remember { Animatable(0f) }
     LaunchedEffect(shown, d.target, d.key) {
@@ -304,7 +309,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
@@ -330,20 +335,20 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                     )
                 }
                 Text(
-                    "HEDEF  ${fmt(d.target)}",
+                    L("HEDEF  ${fmt(d.target)}", "TARGET  ${fmt(d.target)}"),
                     style = labelStyle(p.sub).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.padding(start = 2.dp),
                 )
             }
             Text(
-                "TAMAMLANDI",
+                L("TAMAMLANDI", "COMPLETE"),
                 style = labelStyle(p.goldText).copy(fontSize = small, letterSpacing = 3.sp),
                 modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.19f) - lift).padding(start = 3.dp)
                     .graphicsLayer { val b = burst.value; alpha = if (b < 1f) sin(PI.toFloat() * b).coerceIn(0f, 1f) else 0f },
             )
             if (d.laps > 0) {
                 Text(
-                    "${d.laps}. TUR",
+                    L("${d.laps}. TUR", "ROUND ${d.laps}"),
                     style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.align(Alignment.Center).offset(y = side * 0.17f - lift)
                         .clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -385,7 +390,60 @@ private fun metalBrush(silver: Boolean, a: Offset, b: Offset): Brush = Brush.lin
     start = a, end = b,
 )
 
-private fun DrawScope.drawDome(p: Pal, m: BeadMat, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
+/** Tane görüntüleri önbelleği: malzeme ya da boyut değişince bir kez üretilir. */
+class BeadSprites {
+    class Sprites(val size: Int, val beads: List<ImageBitmap>, val shadow: ImageBitmap)
+    private var key: Pair<BeadMat, Int>? = null
+    private var cached: Sprites? = null
+
+    fun get(m: BeadMat, r: Float, density: Density): Sprites {
+        val size = ceil(r * 2f + 4f).toInt().coerceAtLeast(4)
+        val k = m to size
+        cached?.let { if (key == k) return it }
+        val c = Offset(size / 2f, size / 2f)
+        val beads = (0 until 6).map { v -> render(size, density) { drawBead(m, c, r, v) } }
+        val shadowSize = ceil(r * 2.6f + 4f).toInt()
+        val sc = Offset(shadowSize / 2f, shadowSize / 2f)
+        val sh = render(shadowSize, density) {
+            drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.38f), Color.Transparent), center = sc, radius = r * 1.3f), r * 1.3f, sc)
+        }
+        // Gölge, tane ile aynı merkeze hizalansın diye aynı boyutta tutulur
+        val shadow = if (shadowSize == size) sh else render(size, density) { drawImage(sh, Offset((size - shadowSize) / 2f, (size - shadowSize) / 2f)) }
+        return Sprites(size, beads, shadow).also { cached = it; key = k }
+    }
+
+    private fun render(size: Int, density: Density, block: DrawScope.() -> Unit): ImageBitmap {
+        val bmp = ImageBitmap(size, size)
+        CanvasDrawScope().draw(density, LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(bmp), Size(size.toFloat(), size.toFloat()), block)
+        return bmp
+    }
+}
+
+/** Tek bir tane: gövde, doğal bulutlanma, kenar koyulaşması, yansıyan ışık, ipeksi parlaklık ve keskin ışık noktası. */
+private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
+    drawCircle(
+        Brush.radialGradient(0f to m.light, 0.55f to m.base, 1f to m.edge, center = Offset(q.x - r * 0.30f, q.y - r * 0.36f), radius = r * 1.45f),
+        r, q,
+    )
+    val h1 = ((variant * 73 + 17) % 97) / 97f
+    val h2 = ((variant * 41 + 59) % 89) / 89f
+    val m1 = Offset(q.x + (h1 - 0.5f) * r * 0.8f, q.y + (h2 - 0.5f) * r * 0.7f)
+    val m2 = Offset(q.x + (h2 - 0.5f) * r * 0.7f, q.y + (0.5f - h1) * r * 0.8f)
+    val r1 = r * (0.35f + 0.2f * h2)
+    val r2 = r * (0.30f + 0.2f * h1)
+    drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f), Color.Transparent), center = m1, radius = r1), r1, m1)
+    drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.45f), Color.Transparent), center = m2, radius = r2), r2, m2)
+    drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f), center = q, radius = r), r, q)
+    val bo = Offset(q.x + r * 0.12f, q.y + r * 0.52f)
+    drawCircle(Brush.radialGradient(listOf(m.light.copy(alpha = 0.28f), Color.Transparent), center = bo, radius = r * 0.45f), r * 0.45f, bo)
+    val so = Offset(q.x - r * 0.28f, q.y - r * 0.34f)
+    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.24f), Color.Transparent), center = so, radius = r * 0.55f), r * 0.55f, so)
+    val spt = Offset(q.x - r * 0.30f, q.y - r * 0.38f)
+    drawCircle(Color.White.copy(alpha = 0.35f * m.spec), r * 0.17f, spt)
+    drawCircle(Color.White.copy(alpha = 0.95f * m.spec), r * 0.085f, spt)
+}
+
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
     val k = size.minDimension / 380.dp.toPx()
     val c = Offset(center.x, center.y - 24.dp.toPx() * k)   // imame ve püskül için aşağıda yer aç
     val rB = size.minDimension / 2 - 42.dp.toPx() * k        // tespih ipinin yarıçapı
@@ -483,7 +541,6 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, prog: Float, pos: Float, puls
     drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
 
     // ── Taneler ──
-    val shadow = Color.Black.copy(alpha = if (p.dark) 0.38f else 0.16f)
     val beadsAt = ArrayList<Pair<Int, Offset>>(33)
     val alphas = FloatArray(33)
     for (i in 0 until 33) {
@@ -496,47 +553,22 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, prog: Float, pos: Float, puls
         val ang = 90f + gapDeg / 2f + v * seg
         beadsAt.add(i to polar(rB, ang))
     }
-    // gölgeler önce
+    // Taneler önbellekteki görüntülerden çizilir (her karede yeniden fırça oluşturulmaz)
+    val sp = sprites.get(m, r, this)
+    val half = sp.size / 2f
     for ((i, q) in beadsAt) {
-        val sc = Offset(q.x, q.y + r * 0.38f)
-        drawCircle(Brush.radialGradient(listOf(shadow.copy(alpha = shadow.alpha * alphas[i]), Color.Transparent), center = sc, radius = r * 1.3f), r * 1.3f, sc)
+        drawImage(sp.shadow, Offset(q.x - half, q.y - half + r * 0.38f), alpha = alphas[i] * (if (p.dark) 1f else 0.45f))
     }
     val litUpTo = prog * 33f
     for ((i, q) in beadsAt) {
         val a = alphas[i]
         val u = (((i + pos) % 33f) + 33f) % 33f
         val lit = u + 0.5f <= litUpTo + 0.01f
-        // Çekilen taneler, ilerleme rengine göre ışıldar
         if (lit) {
             val g = phase(p, (u + 0.5f) / 33f)
             drawCircle(Brush.radialGradient(listOf(g.copy(alpha = 0.55f * a), Color.Transparent), center = q, radius = r * 1.75f), r * 1.75f, q)
         }
-        // gövde
-        drawCircle(
-            Brush.radialGradient(
-                0f to m.light, 0.55f to m.base, 1f to m.edge,
-                center = Offset(q.x - r * 0.30f, q.y - r * 0.36f), radius = r * 1.45f,
-            ),
-            r, q, alpha = a,
-        )
-        // doğal bulutlanma (her tanede farklı, tane ile birlikte döner)
-        val h1 = ((i * 73 + 17) % 97) / 97f
-        val h2 = ((i * 41 + 59) % 89) / 89f
-        val m1 = Offset(q.x + (h1 - 0.5f) * r * 0.8f, q.y + (h2 - 0.5f) * r * 0.7f)
-        val m2 = Offset(q.x + (h2 - 0.5f) * r * 0.7f, q.y + (0.5f - h1) * r * 0.8f)
-        drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f * a), Color.Transparent), center = m1, radius = r * (0.35f + 0.2f * h2)), r * (0.35f + 0.2f * h2), m1)
-        drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.45f * a), Color.Transparent), center = m2, radius = r * (0.30f + 0.2f * h1)), r * (0.30f + 0.2f * h1), m2)
-        // kenar koyulaşması
-        drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f * a), center = q, radius = r), r, q)
-        // altta yansıyan sıcak ışık
-        val bo = Offset(q.x + r * 0.12f, q.y + r * 0.52f)
-        drawCircle(Brush.radialGradient(listOf(m.light.copy(alpha = 0.28f * a), Color.Transparent), center = bo, radius = r * 0.45f), r * 0.45f, bo)
-        // ipeksi parlaklık + keskin ışık noktası
-        val so = Offset(q.x - r * 0.28f, q.y - r * 0.34f)
-        drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.24f * a), Color.Transparent), center = so, radius = r * 0.55f), r * 0.55f, so)
-        val sp = Offset(q.x - r * 0.30f, q.y - r * 0.38f)
-        drawCircle(Color.White.copy(alpha = 0.35f * m.spec * a), r * 0.17f, sp)
-        drawCircle(Color.White.copy(alpha = 0.95f * m.spec * a), r * 0.085f, sp)
+        drawImage(sp.beads[(i * 5) % sp.beads.size], Offset(q.x - half, q.y - half), alpha = a)
         if (lit) drawCircle(phase(p, (u + 0.5f) / 33f).copy(alpha = 0.10f * a), r, q)
     }
     // ── Nişaneler: 11. ve 22. tanelerden sonra telkari ara parçalar ──
@@ -635,15 +667,15 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, prog: Float, pos: Float, puls
 @Composable
 private fun ControlRow(st: AppState, d: Disp, sheet: (SheetKind) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        GlyphButton(G.UNDO, "Bir eksilt") { st.undo() }
+        GlyphButton(G.UNDO, L("Bir eksilt", "Undo one")) { st.undo() }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             if (d.vird == null) {
-                GoldChip("Hedef  ${fmt(d.target)}", false, G.EDIT) { sheet(SheetKind.Target) }
+                GoldChip(L("Hedef  ${fmt(d.target)}", "Target  ${fmt(d.target)}"), false, G.EDIT) { sheet(SheetKind.Target) }
             } else {
-                GoldChip("Sonraki adım", false, G.SKIP) { st.skipStep() }
+                GoldChip(L("Sonraki adım", "Next step"), false, G.SKIP) { st.skipStep() }
             }
         }
-        GlyphButton(G.RESET, "Sıfırla") { st.resetCurrent() }
+        GlyphButton(G.RESET, L("Sıfırla", "Reset")) { st.resetCurrent() }
     }
 }
 
@@ -656,9 +688,9 @@ private fun StatStrip(st: AppState) {
         Ornament(220.dp, 0.8f)
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Stat(if (goal > 0) "BUGÜN · ${fmt(goal)}" else "BUGÜN", fmt(today))
-            Stat("SERİ", if (st.streak() == 1) "1 gün" else "${st.streak()} gün")
-            Stat("TOPLAM", fmt(st.total))
+            Stat(if (goal > 0) L("BUGÜN · ${fmt(goal)}", "TODAY · ${fmt(goal)}") else L("BUGÜN", "TODAY"), fmt(today))
+            Stat(L("SERİ", "STREAK"), if (st.streak() == 1) L("1 gün", "1 day") else L("${st.streak()} gün", "${st.streak()} days"))
+            Stat(L("TOPLAM", "TOTAL"), fmt(st.total))
         }
         if (goal > 0) {
             Spacer(Modifier.height(8.dp))

@@ -18,7 +18,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** Uygulamaya özel, aynı çizgi kalınlığında ince ikon seti (24 birimlik ızgara). */
-enum class G { LIST, PLUS, GRID, UNDO, RESET, CHART, FOCUS, GEAR, BOOK, BEADS, CLOSE, EDIT, TRASH, UP, DOWN, LEFT, RIGHT, CHECK, BELL, BACK, PLAY, EXPORT, IMPORT, SKIP, MINUS }
+enum class G { LIST, PLUS, GRID, UNDO, RESET, CHART, FOCUS, GEAR, BOOK, BEADS, CLOSE, EDIT, TRASH, UP, DOWN, LEFT, RIGHT, CHECK, BELL, BACK, PLAY, EXPORT, IMPORT, SKIP, MINUS, GRIP }
 
 @Composable
 fun Glyph(g: G, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
@@ -100,6 +100,7 @@ fun Glyph(g: G, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
             G.EXPORT -> { ln(12f, 4f, 12f, 15f); path { m(7.5f, 10.5f); l(12f, 15f); l(16.5f, 10.5f) }; ln(5f, 19.5f, 19f, 19.5f) }
             G.IMPORT -> { ln(12f, 15f, 12f, 4f); path { m(7.5f, 8.5f); l(12f, 4f); l(16.5f, 8.5f) }; ln(5f, 19.5f, 19f, 19.5f) }
             G.MINUS -> ln(5f, 12f, 19f, 12f)
+            G.GRIP -> listOf(8f, 12f, 16f).forEach { y -> drawCircle(tint, 1.3f * s, pt(9.5f, y)); drawCircle(tint, 1.3f * s, pt(14.5f, y)) }
             G.SKIP -> { path { m(6f, 6f); l(13f, 12f); l(6f, 18f) }; ln(17f, 6f, 17f, 18f) }
         }
     }
