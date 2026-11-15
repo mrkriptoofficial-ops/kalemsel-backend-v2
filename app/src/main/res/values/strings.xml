@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Zikirmatik</string>
+    <string name="widget_desc">Uygulamayı açmadan zikir çek</string>
 </resources>

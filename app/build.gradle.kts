@@ -12,8 +12,8 @@ android {
         applicationId = "com.gezgin.zikirmatik"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "2.0"
     }
 
     signingConfigs {
@@ -52,5 +52,5 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
 }

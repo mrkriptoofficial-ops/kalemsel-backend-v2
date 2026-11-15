@@ -17,22 +17,46 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fontlari indir (Amiri, Cormorant Garamond, Manrope - OFL)
+        run: |
+          set -o pipefail
+          pip install fonttools 2>&1 | tail -1
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/google/fonts gf 2>&1 | tail -2
+          git -C gf sparse-checkout set ofl/amiri ofl/cormorantgaramond ofl/manrope
+          python3 tools/fonts.py 2>&1 | tee fonts.log
+
       - name: Derle
-        run: chmod +x gradlew && ./gradlew assembleRelease
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee build.log
+
       - name: APK'yi adlandir
         run: cp app/build/outputs/apk/release/app-release.apk Zikirmatik.apk
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Zikirmatik-APK
-          path: Zikirmatik.apk
+
       - name: Indirme sayfasina koy
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="zikirmatik-v1.3-${{ github.run_number }}"
+          TAG="zikirmatik-v2-${{ github.run_number }}"
           gh release create "$TAG" Zikirmatik.apk \
             --target "${{ github.sha }}" \
-            --title "Zikirmatik ${{ github.run_number }}" \
+            --title "Zikirmatik 2 (${{ github.run_number }})" \
             --notes "Telefona indir ve kur: Zikirmatik.apk" \
             --latest=false
+
+      - name: Hata kaydini yayinla
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          touch build.log fonts.log
+          { echo "=== FONTS"; tail -40 fonts.log; echo "=== ERRORS"; grep -E "^e: |error:|What went wrong|Exception" -A4 build.log | head -300; echo "=== TAIL"; tail -120 build.log; } > errors.txt
+          gh release create "buildlog-${{ github.run_number }}" errors.txt \
+            --target "${{ github.sha }}" --prerelease \
+            --title "Derleme kaydi ${{ github.run_number }}" --notes "derleme hatasi" --latest=false
