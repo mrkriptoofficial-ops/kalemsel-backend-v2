@@ -1,6 +1,6 @@
 # Zikirmatik
 
-Kristal, inci ve altın tonlarında, sade ama özenli bir Android zikirmatiği (Kotlin + Jetpack Compose).
+Gece safiri, kristal ve altın tonlarında, sade ama özenli bir Android zikirmatiği (Kotlin + Jetpack Compose).
 
 ## Özellikler
 - 6 hazır zikir + kendi zikirlerini ekleme, düzenleme, silme

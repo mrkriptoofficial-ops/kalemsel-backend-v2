@@ -67,7 +67,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -119,13 +119,17 @@ import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.sin
 
-// ───────────── Palet: inci, kristal ve şampanya altını ─────────────
-private val InkSoft = Color(0xFF3A342B)
-private val Gold = Color(0xFFB8913F)
-private val GoldLight = Color(0xFFE9CF8E)
-private val GoldDeep = Color(0xFF8A6A2C)
-private val Muted = Color(0xFF8C8478)
+// ───────────── Palet: gece safiri, fildişi ve altın (WCAG AA üzeri kontrast) ─────────────
+private val Night0 = Color(0xFF050B1A)
+private val Night1 = Color(0xFF0B1733)
+private val Night2 = Color(0xFF13254D)
+private val Ivory = Color(0xFFF6F0E1)
+private val Slate = Color(0xFFA6B1C8)
+private val Gold = Color(0xFFD4AE62)
+private val GoldLight = Color(0xFFF1D9A0)
+private val GoldDeep = Color(0xFF9C7838)
 private val GoldBrush = Brush.linearGradient(listOf(GoldDeep, Gold, GoldLight, Gold, GoldDeep))
+private val NumberBrush = Brush.verticalGradient(listOf(Color(0xFFFFF8E6), GoldLight, Gold))
 private val Serif = FontFamily.Serif
 
 data class Zikir(
@@ -226,12 +230,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Gold, background = Color(0xFFF7F3EC), surface = Color.White)) {
+            MaterialTheme(colorScheme = darkColorScheme(primary = Gold, background = Night0, surface = Night1)) {
                 ZikirmatikApp(this)
             }
         }
@@ -306,14 +310,14 @@ fun ZikirmatikApp(activity: MainActivity) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Header(onList = { dialog = Dlg.Liste }, onAdd = { dialog = Dlg.Duzenle(null) })
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
             ZikirSelector(list, idx) { select(list[it].id) }
             Spacer(Modifier.weight(1f))
             CounterRing(count = cur.count, target = cur.target, pulse = pulse.value, onTap = increment)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Kristale dokun ya da ses tuşlarını kullan",
-                color = Muted.copy(alpha = 0.8f),
+                "Kubbeye dokun ya da ses tuşlarını kullan",
+                color = Slate.copy(alpha = 0.85f),
                 fontSize = 11.sp,
                 letterSpacing = 0.4.sp,
             )
@@ -387,14 +391,14 @@ fun ZikirmatikApp(activity: MainActivity) {
     }
 }
 
-// ───────────── Cam (glass) yüzey ─────────────
+// ───────────── Cam yüzey (koyu zeminde, ölçülü) ─────────────
 private fun Modifier.glass(shape: Shape, strong: Boolean = false): Modifier = this
     .clip(shape)
     .background(
         Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = if (strong) 0.80f else 0.58f),
-                Color.White.copy(alpha = if (strong) 0.55f else 0.24f),
+                Color.White.copy(alpha = if (strong) 0.12f else 0.075f),
+                Color.White.copy(alpha = if (strong) 0.05f else 0.02f),
             ),
         ),
         shape,
@@ -402,26 +406,34 @@ private fun Modifier.glass(shape: Shape, strong: Boolean = false): Modifier = th
     .border(
         1.dp,
         Brush.linearGradient(
-            listOf(Color.White, Color.White.copy(alpha = 0.35f), GoldLight.copy(alpha = 0.7f)),
+            listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f), Gold.copy(alpha = 0.35f)),
         ),
         shape,
     )
 
-// İnci zemin + yumuşak, dağılmış ışık lekeleri (şampanya, lila, gök mavisi)
+// Gece safiri gökyüzü: üstten süzülen ışık, çok silik yıldızlar
 @Composable
 private fun PearlBackground() {
     Canvas(Modifier.fillMaxSize()) {
-        drawRect(Brush.verticalGradient(listOf(Color(0xFFFDFBF7), Color(0xFFF4EFE6), Color(0xFFEDE7DC))))
+        drawRect(Brush.verticalGradient(listOf(Night2, Night1, Night0)))
         fun glow(color: Color, x: Float, y: Float, r: Float) {
             val o = Offset(size.width * x, size.height * y)
             val rr = size.width * r
             drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), center = o, radius = rr), radius = rr, center = o)
         }
-        glow(Color(0xFFF3DDAA).copy(alpha = 0.55f), 0.85f, 0.10f, 0.75f)
-        glow(Color(0xFFE3DAF5).copy(alpha = 0.60f), 0.05f, 0.38f, 0.70f)
-        glow(Color(0xFFD7E6F6).copy(alpha = 0.60f), 0.95f, 0.70f, 0.75f)
-        glow(Color(0xFFF6E0D6).copy(alpha = 0.55f), 0.15f, 0.95f, 0.70f)
-        glow(Color.White.copy(alpha = 0.85f), 0.5f, 0.52f, 0.55f)
+        glow(Color(0xFF2A4C8F).copy(alpha = 0.55f), 0.5f, -0.05f, 0.95f)
+        glow(Color(0xFF3B2F6B).copy(alpha = 0.35f), 0.0f, 0.55f, 0.65f)
+        glow(Color(0xFF1C3D78).copy(alpha = 0.40f), 1.0f, 0.75f, 0.70f)
+        glow(Gold.copy(alpha = 0.07f), 0.5f, 0.56f, 0.60f)
+
+        val rnd = java.util.Random(7)
+        repeat(70) {
+            val x = rnd.nextFloat() * size.width
+            val y = rnd.nextFloat() * size.height * 0.62f
+            val r = (0.4f + rnd.nextFloat() * 0.9f) * density
+            val a = 0.10f + rnd.nextFloat() * 0.35f
+            drawCircle(Color.White.copy(alpha = a), radius = r, center = Offset(x, y))
+        }
     }
 }
 
@@ -433,11 +445,11 @@ private fun Ornament(width: Dp = 150.dp) {
         val gap = 12.dp.toPx()
         val sw = 0.8.dp.toPx()
         drawLine(
-            Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.7f)), startX = 0f, endX = cx - gap),
+            Brush.horizontalGradient(listOf(Color.Transparent, Gold), startX = 0f, endX = cx - gap),
             Offset(0f, cy), Offset(cx - gap, cy), sw,
         )
         drawLine(
-            Brush.horizontalGradient(listOf(Gold.copy(alpha = 0.7f), Color.Transparent), startX = cx + gap, endX = size.width),
+            Brush.horizontalGradient(listOf(Gold, Color.Transparent), startX = cx + gap, endX = size.width),
             Offset(cx + gap, cy), Offset(size.width, cy), sw,
         )
         val d = 4.dp.toPx()
@@ -445,8 +457,8 @@ private fun Ornament(width: Dp = 150.dp) {
             moveTo(cx, cy - d); lineTo(cx + d, cy); lineTo(cx, cy + d); lineTo(cx - d, cy); close()
         }
         drawPath(diamond, GoldBrush)
-        drawCircle(Gold.copy(alpha = 0.7f), 1.2.dp.toPx(), Offset(cx - gap + 4.dp.toPx(), cy))
-        drawCircle(Gold.copy(alpha = 0.7f), 1.2.dp.toPx(), Offset(cx + gap - 4.dp.toPx(), cy))
+        drawCircle(Gold, 1.2.dp.toPx(), Offset(cx - gap + 4.dp.toPx(), cy))
+        drawCircle(Gold, 1.2.dp.toPx(), Offset(cx + gap - 4.dp.toPx(), cy))
     }
 }
 
@@ -458,17 +470,12 @@ private fun Header(onList: () -> Unit, onAdd: () -> Unit) {
             Text(
                 "ZİKİRMATİK",
                 style = TextStyle(
-                    brush = GoldBrush, fontSize = 16.sp, letterSpacing = 7.sp,
-                    fontWeight = FontWeight.Medium, fontFamily = Serif,
+                    brush = GoldBrush, fontSize = 15.sp, letterSpacing = 8.sp,
+                    fontWeight = FontWeight.SemiBold, fontFamily = Serif,
                 ),
             )
-            Spacer(Modifier.height(5.dp))
-            Ornament(110.dp)
-            Spacer(Modifier.height(5.dp))
-            Text(
-                "Kalpler ancak Allah'ı anmakla huzur bulur",
-                color = Muted, fontSize = 10.5.sp, fontStyle = FontStyle.Italic,
-            )
+            Spacer(Modifier.height(6.dp))
+            Ornament(96.dp)
         }
         RoundIcon(Icons.Filled.Add, onClick = onAdd)
     }
@@ -479,11 +486,12 @@ private fun RoundIcon(icon: ImageVector, dim: Dp = 42.dp, onClick: () -> Unit) {
     Box(
         Modifier
             .size(dim)
-            .glass(CircleShape)
+            .clip(CircleShape)
+            .border(1.dp, Gold.copy(alpha = 0.45f), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(dim * 0.48f))
+        Icon(icon, contentDescription = null, tint = GoldLight, modifier = Modifier.size(dim * 0.48f))
     }
 }
 
@@ -494,8 +502,8 @@ private fun ZikirSelector(list: List<Zikir>, idx: Int, onChange: (Int) -> Unit) 
         Row(
             Modifier
                 .fillMaxWidth()
-                .glass(RoundedCornerShape(26.dp))
-                .padding(horizontal = 8.dp, vertical = 16.dp),
+                .glass(RoundedCornerShape(24.dp))
+                .padding(horizontal = 6.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (n > 1) ArrowTap(Icons.AutoMirrored.Filled.KeyboardArrowLeft) { onChange((idx - 1 + n) % n) }
@@ -510,30 +518,33 @@ private fun ZikirSelector(list: List<Zikir>, idx: Int, onChange: (Int) -> Unit) 
                     if (z.arapca.isNotBlank()) {
                         Text(
                             z.arapca,
-                            color = InkSoft,
-                            fontSize = 28.sp,
-                            lineHeight = 44.sp,
+                            color = Ivory,
+                            fontSize = 30.sp,
+                            lineHeight = 46.sp,
                             textAlign = TextAlign.Center,
                             style = TextStyle(textDirection = TextDirection.Rtl),
                             maxLines = 2,
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            z.okunus, color = Gold, fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
+                            z.okunus.uppercase(Locale.forLanguageTag("tr")),
+                            color = GoldLight, fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold, letterSpacing = 3.sp,
                             textAlign = TextAlign.Center,
                         )
                     } else {
                         Text(
                             z.okunus,
-                            style = TextStyle(brush = GoldBrush, fontSize = 26.sp, fontFamily = Serif),
+                            color = Ivory,
+                            fontSize = 26.sp,
+                            fontFamily = Serif,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                         )
                     }
                     if (z.anlam.isNotBlank()) {
-                        Spacer(Modifier.height(3.dp))
-                        Text(z.anlam, color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center, maxLines = 2)
+                        Spacer(Modifier.height(4.dp))
+                        Text(z.anlam, color = Slate, fontSize = 12.5.sp, textAlign = TextAlign.Center, maxLines = 2)
                     }
                 }
             }
@@ -543,23 +554,20 @@ private fun ZikirSelector(list: List<Zikir>, idx: Int, onChange: (Int) -> Unit) 
         if (n in 2..12) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 list.indices.forEach { i ->
-                    val w by animateDpAsState(if (i == idx) 20.dp else 6.dp, label = "dot")
+                    val w by animateDpAsState(if (i == idx) 18.dp else 5.dp, label = "dot")
                     Box(
                         Modifier
                             .padding(horizontal = 3.dp)
                             .width(w)
-                            .height(6.dp)
+                            .height(5.dp)
                             .clip(CircleShape)
-                            .then(
-                                if (i == idx) Modifier.background(GoldBrush)
-                                else Modifier.background(Color.White.copy(alpha = 0.9f)).border(0.6.dp, Gold.copy(alpha = 0.35f), CircleShape)
-                            )
+                            .background(if (i == idx) GoldLight else Slate.copy(alpha = 0.35f))
                             .clickable { onChange(i) }
                     )
                 }
             }
         } else if (n > 12) {
-            Text("${idx + 1} / $n", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp)
+            Text("${idx + 1} / $n", color = Slate, fontSize = 11.sp, letterSpacing = 2.sp)
         }
     }
 }
@@ -568,12 +576,12 @@ private fun ZikirSelector(list: List<Zikir>, idx: Int, onChange: (Int) -> Unit) 
 private fun ArrowTap(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(36.dp)
+            .size(38.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Gold.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = GoldLight, modifier = Modifier.size(24.dp))
     }
 }
 
@@ -592,14 +600,14 @@ private fun CounterRing(count: Int, target: Int, pulse: Float, onTap: () -> Unit
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        if (pressed) 0.96f else 1f,
-        spring(dampingRatio = 0.5f, stiffness = 600f),
+        if (pressed) 0.965f else 1f,
+        spring(dampingRatio = 0.55f, stiffness = 600f),
         label = "press",
     )
 
     Box(
         Modifier
-            .size(300.dp)
+            .size(304.dp)
             .scale(scale)
             .clip(CircleShape)
             .clickable(interactionSource = interaction, indication = null, onClick = onTap),
@@ -620,22 +628,24 @@ private fun CounterRing(count: Int, target: Int, pulse: Float, onTap: () -> Unit
                 Text(
                     "$v",
                     style = TextStyle(
-                        brush = GoldBrush, fontSize = if (v >= 1000) 64.sp else 82.sp,
+                        brush = NumberBrush, fontSize = if (v >= 1000) 66.sp else 86.sp,
                         fontWeight = FontWeight.Light, fontFamily = Serif,
                     ),
                 )
             }
-            Text("/ $target", color = Muted, fontSize = 14.sp, letterSpacing = 2.sp)
+            Spacer(Modifier.height(2.dp))
+            Text("HEDEF  $target", color = Slate, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Medium)
             if (laps > 0) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "$laps TUR",
-                    color = Gold,
+                    "$laps. TUR",
+                    color = Night0,
                     fontSize = 10.sp,
-                    letterSpacing = 4.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 3.sp,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier
-                        .glass(RoundedCornerShape(50), strong = true)
+                        .clip(RoundedCornerShape(50))
+                        .background(GoldBrush)
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 )
             }
@@ -643,48 +653,30 @@ private fun CounterRing(count: Int, target: Int, pulse: Float, onTap: () -> Unit
     }
 }
 
-// Kristal disk: prizma ışıltılı kenar, kesme yüzeyler, parıltı ve altın ilerleme
+// Safir kristal kubbe: altın kadran, kesme yüzeyler, prizma kenar, parıltı
 private fun DrawScope.drawCrystal(p: Float, pulse: Float) {
     val c = center
     val rOuter = size.minDimension / 2 - 6.dp.toPx()
     val major = 10.dp.toPx()
     val minor = 4.5.dp.toPx()
-    val rDisc = rOuter - major - 8.dp.toPx()
-    val rArc = rDisc - 12.dp.toPx()
-    val stroke = 3.dp.toPx()
+    val rDisc = rOuter - major - 9.dp.toPx()
+    val rArc = rDisc - 13.dp.toPx()
+    val stroke = 3.5.dp.toPx()
 
     fun polar(r: Float, deg: Double): Offset {
         val a = Math.toRadians(deg)
         return Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat())
     }
 
-    // Yumuşak altın gölge / ışık hâlesi
-    val shadowC = Offset(c.x, c.y + 14.dp.toPx())
+    // Arka ışık hâlesi
     drawCircle(
-        Brush.radialGradient(listOf(Gold.copy(alpha = 0.16f), Color.Transparent), center = shadowC, radius = rOuter * 1.1f),
-        radius = rOuter * 1.1f, center = shadowC,
+        Brush.radialGradient(listOf(Color(0xFF3A63B0).copy(alpha = 0.35f), Color.Transparent), center = c, radius = rOuter * 1.12f),
+        radius = rOuter * 1.12f, center = c,
     )
 
-    // Dış cam halka (kadran)
-    drawCircle(
-        Brush.linearGradient(
-            listOf(Color.White.copy(alpha = 0.75f), Color.White.copy(alpha = 0.25f)),
-            start = Offset(c.x - rOuter, c.y - rOuter), end = Offset(c.x + rOuter, c.y + rOuter),
-        ),
-        radius = rOuter, center = c,
-    )
-    // Prizma kenarı
-    drawCircle(
-        Brush.sweepGradient(
-            listOf(
-                Color(0xFFF2D9A0), Color(0xFFF4D3DA), Color(0xFFDCD4F3),
-                Color(0xFFCFE2F4), Color(0xFFF7F1DF), Color(0xFFF2D9A0),
-            ),
-            center = c,
-        ),
-        radius = rOuter, center = c, style = Stroke(2.dp.toPx()),
-    )
-    drawCircle(Color.White, radius = rOuter - 1.5.dp.toPx(), center = c, style = Stroke(0.8.dp.toPx()))
+    // Kadran zemini
+    drawCircle(Night0.copy(alpha = 0.55f), radius = rOuter, center = c)
+    drawCircle(GoldBrushFor(c, rOuter), radius = rOuter, center = c, style = Stroke(1.2.dp.toPx()))
 
     // Kertikler
     val n = 60
@@ -695,25 +687,35 @@ private fun DrawScope.drawCrystal(p: Float, pulse: Float) {
         val r1 = rOuter - 5.dp.toPx()
         val r2 = r1 - if (isMajor) major else minor
         val col = if (i < filled) {
-            if (isMajor) GoldDeep else Gold
+            if (isMajor) GoldLight else Gold
         } else {
-            InkSoft.copy(alpha = if (isMajor) 0.22f else 0.10f)
+            Slate.copy(alpha = if (isMajor) 0.45f else 0.22f)
         }
         drawLine(col, polar(r1, deg), polar(r2, deg), if (isMajor) 1.8.dp.toPx() else 1.dp.toPx(), cap = StrokeCap.Round)
     }
 
-    // Kristal disk gövdesi
+    // Kristal kubbe gövdesi (derinlik veren safir degrade)
     drawCircle(
         Brush.radialGradient(
-            listOf(Color.White.copy(alpha = 0.95f), Color(0xFFF7F3EC).copy(alpha = 0.75f), Color(0xFFEDE6F3).copy(alpha = 0.6f)),
-            center = Offset(c.x - rDisc * 0.25f, c.y - rDisc * 0.3f),
-            radius = rDisc * 1.4f,
+            listOf(Color(0xFF26437E), Color(0xFF142852), Color(0xFF0A1633)),
+            center = Offset(c.x - rDisc * 0.3f, c.y - rDisc * 0.35f),
+            radius = rDisc * 1.45f,
         ),
         radius = rDisc, center = c,
     )
-    // Kesme yüzeyler (sekizgen faset çizgileri)
-    val facet = Gold.copy(alpha = 0.07f)
-    val rf = rDisc * 0.62f
+    // Alt kenarda kristalin içinden geçen ışık
+    drawCircle(
+        Brush.radialGradient(
+            listOf(Color(0xFF6E9BE6).copy(alpha = 0.35f), Color.Transparent),
+            center = Offset(c.x + rDisc * 0.35f, c.y + rDisc * 0.55f),
+            radius = rDisc * 0.8f,
+        ),
+        radius = rDisc, center = c,
+    )
+
+    // Kesme yüzeyler
+    val facet = Color.White.copy(alpha = 0.06f)
+    val rf = rDisc * 0.64f
     val oct = Path().apply {
         for (k in 0..7) {
             val pt = polar(rf, -90.0 + 22.5 + 45.0 * k)
@@ -726,71 +728,83 @@ private fun DrawScope.drawCrystal(p: Float, pulse: Float) {
         val deg = -90.0 + 22.5 + 45.0 * k
         drawLine(facet, polar(rf, deg), polar(rDisc, deg), 1.dp.toPx())
     }
+
+    // Prizma kenar (ışığı kıran ince renk halkası)
     drawCircle(
-        Brush.linearGradient(
-            listOf(Color.White, GoldLight.copy(alpha = 0.6f), Color.White.copy(alpha = 0.4f)),
-            start = Offset(c.x - rDisc, c.y - rDisc), end = Offset(c.x + rDisc, c.y + rDisc),
+        Brush.sweepGradient(
+            listOf(
+                Color(0xFFF3D9A4), Color(0xFFF2B8C6), Color(0xFFB9A8F0),
+                Color(0xFF8EC3F2), Color(0xFFE9F1FF), Color(0xFFF3D9A4),
+            ),
+            center = c,
         ),
-        radius = rDisc, center = c, style = Stroke(1.2.dp.toPx()),
+        radius = rDisc, center = c, style = Stroke(1.6.dp.toPx()),
     )
 
     // Dokunuş dalgası
     if (pulse < 1f) {
         val a = 1f - pulse
         drawCircle(
-            Gold.copy(alpha = a * 0.45f),
-            radius = rArc + (rOuter - rArc + 18.dp.toPx()) * pulse,
+            GoldLight.copy(alpha = a * 0.55f),
+            radius = rArc + (rOuter - rArc + 20.dp.toPx()) * pulse,
             center = c,
             style = Stroke(2.dp.toPx() * a + 0.5f),
         )
-        drawCircle(Color.White.copy(alpha = a * 0.5f), radius = rDisc * (0.4f + 0.6f * pulse), center = c)
+        drawCircle(
+            Brush.radialGradient(listOf(Color.White.copy(alpha = a * 0.18f), Color.Transparent), center = c, radius = rDisc),
+            radius = rDisc, center = c,
+        )
     }
 
-    // İlerleme yayı
-    drawCircle(InkSoft.copy(alpha = 0.06f), radius = rArc, center = c, style = Stroke(stroke))
+    // İlerleme yayı (altın, hafif parlamalı)
+    drawCircle(Color.White.copy(alpha = 0.07f), radius = rArc, center = c, style = Stroke(stroke))
     val sweep = 360f * p
     if (sweep > 0.5f) {
+        val tl = Offset(c.x - rArc, c.y - rArc)
+        val sz = Size(rArc * 2, rArc * 2)
         rotate(-90f, c) {
             drawArc(
-                brush = Brush.sweepGradient(0f to GoldLight, 0.5f to Gold, 1f to GoldDeep, center = c),
-                startAngle = 0f,
-                sweepAngle = sweep,
-                useCenter = false,
-                topLeft = Offset(c.x - rArc, c.y - rArc),
-                size = Size(rArc * 2, rArc * 2),
-                style = Stroke(stroke, cap = StrokeCap.Round),
+                color = Gold.copy(alpha = 0.18f),
+                startAngle = 0f, sweepAngle = sweep, useCenter = false,
+                topLeft = tl, size = sz, style = Stroke(stroke * 3.2f, cap = StrokeCap.Round),
+            )
+            drawArc(
+                brush = Brush.sweepGradient(0f to GoldDeep, 0.5f to Gold, 1f to GoldLight, center = c),
+                startAngle = 0f, sweepAngle = sweep, useCenter = false,
+                topLeft = tl, size = sz, style = Stroke(stroke, cap = StrokeCap.Round),
             )
         }
         val head = polar(rArc, -90.0 + sweep)
-        drawCircle(GoldLight.copy(alpha = 0.55f), radius = stroke * 2.6f, center = head)
-        drawCircle(Color.White, radius = stroke * 1.1f, center = head)
-        drawCircle(Gold, radius = stroke * 1.1f, center = head, style = Stroke(1.dp.toPx()))
+        drawCircle(GoldLight.copy(alpha = 0.35f), radius = stroke * 2.4f, center = head)
+        drawCircle(Ivory, radius = stroke * 0.85f, center = head)
     }
 
-    // Parıltı (sol üstte cam yansıması)
+    // Cam parıltısı (sol üst)
     rotate(-35f, c) {
         drawOval(
             Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = 0.75f), Color.White.copy(alpha = 0f)),
-                startY = c.y - rDisc * 0.92f, endY = c.y - rDisc * 0.45f,
+                listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0f)),
+                startY = c.y - rDisc * 0.95f, endY = c.y - rDisc * 0.4f,
             ),
-            topLeft = Offset(c.x - rDisc * 0.55f, c.y - rDisc * 0.92f),
-            size = Size(rDisc * 1.1f, rDisc * 0.5f),
+            topLeft = Offset(c.x - rDisc * 0.6f, c.y - rDisc * 0.95f),
+            size = Size(rDisc * 1.2f, rDisc * 0.55f),
         )
     }
-    drawCircle(Color.White.copy(alpha = 0.9f), radius = 2.dp.toPx(), center = polar(rDisc * 0.78f, -128.0))
+    drawCircle(Color.White.copy(alpha = 0.9f), radius = 1.8.dp.toPx(), center = polar(rDisc * 0.8f, -130.0))
+    drawCircle(Color.White.copy(alpha = 0.25f), radius = 4.dp.toPx(), center = polar(rDisc * 0.8f, -130.0))
 }
+
+private fun GoldBrushFor(c: Offset, r: Float): Brush = Brush.linearGradient(
+    listOf(GoldLight, GoldDeep, Gold, GoldLight),
+    start = Offset(c.x - r, c.y - r), end = Offset(c.x + r, c.y + r),
+)
 
 @Composable
 private fun TargetRow(target: Int, onPreset: (Int) -> Unit, onCustom: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("HEDEF", color = Muted, fontSize = 9.sp, letterSpacing = 3.sp)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            HAZIR_HEDEFLER.forEach { t -> GoldChip("$t", t == target) { onPreset(t) } }
-            val custom = target !in HAZIR_HEDEFLER
-            GoldChip(if (custom) "$target" else "ÖZEL", custom, Icons.Filled.Edit, onCustom)
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        HAZIR_HEDEFLER.forEach { t -> GoldChip("$t", t == target) { onPreset(t) } }
+        val custom = target !in HAZIR_HEDEFLER
+        GoldChip(if (custom) "$target" else "ÖZEL", custom, Icons.Filled.Edit, onCustom)
     }
 }
 
@@ -799,21 +813,22 @@ private fun GoldChip(label: String, selected: Boolean, icon: ImageVector? = null
     val shape = RoundedCornerShape(50)
     Row(
         Modifier
+            .clip(shape)
             .then(
-                if (selected) Modifier.clip(shape).background(GoldBrush).border(1.dp, GoldLight, shape)
-                else Modifier.glass(shape)
+                if (selected) Modifier.background(GoldBrush)
+                else Modifier.border(1.dp, Gold.copy(alpha = 0.5f), shape)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = 17.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = if (selected) Color.White else Gold, modifier = Modifier.size(13.dp))
+            Icon(icon, null, tint = if (selected) Night0 else GoldLight, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(5.dp))
         }
         Text(
             label,
-            color = if (selected) Color.White else GoldDeep,
+            color = if (selected) Night0 else Ivory,
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp,
             letterSpacing = 1.sp,
@@ -823,35 +838,36 @@ private fun GoldChip(label: String, selected: Boolean, icon: ImageVector? = null
 
 @Composable
 private fun BottomBar(vibOn: Boolean, total: Int, onVib: () -> Unit, onReset: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .glass(RoundedCornerShape(24.dp))
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Pill(onClick = onVib) {
-            Box(
-                Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(if (vibOn) Gold else Muted.copy(alpha = 0.35f))
-            )
-            Spacer(Modifier.width(7.dp))
-            Text("TİTREŞİM", color = if (vibOn) GoldDeep else Muted, fontSize = 9.5.sp, letterSpacing = 2.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("TOPLAM", color = Muted, fontSize = 8.5.sp, letterSpacing = 3.sp)
-            Text(
-                String.format(Locale.forLanguageTag("tr"), "%,d", total),
-                style = TextStyle(brush = GoldBrush, fontSize = 17.sp, fontFamily = Serif, fontWeight = FontWeight.Medium),
-            )
-        }
-        Pill(onClick = onReset) {
-            Icon(Icons.Filled.Refresh, contentDescription = null, tint = Gold, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("SIFIRLA", color = GoldDeep, fontSize = 9.5.sp, letterSpacing = 2.sp)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Ornament(220.dp)
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pill(onClick = onVib) {
+                Box(
+                    Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(if (vibOn) GoldLight else Slate.copy(alpha = 0.4f))
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("TİTREŞİM", color = if (vibOn) Ivory else Slate, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Medium)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("TOPLAM", color = Slate, fontSize = 9.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    String.format(Locale.forLanguageTag("tr"), "%,d", total),
+                    style = TextStyle(brush = NumberBrush, fontSize = 18.sp, fontFamily = Serif, fontWeight = FontWeight.Medium),
+                )
+            }
+            Pill(onClick = onReset) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, tint = GoldLight, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("SIFIRLA", color = Ivory, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Medium)
+            }
         }
     }
 }
@@ -862,7 +878,7 @@ private fun Pill(onClick: () -> Unit, content: @Composable () -> Unit) {
         Modifier
             .clip(RoundedCornerShape(50))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) { content() }
 }
@@ -882,16 +898,12 @@ private fun LuxDialog(
                 .padding(horizontal = 22.dp)
                 .fillMaxWidth()
                 .clip(shape)
-                .background(Brush.verticalGradient(listOf(Color(0xFFFFFEFB), Color(0xFFF6F1E8))))
-                .border(
-                    1.dp,
-                    Brush.linearGradient(listOf(Color.White, GoldLight, Color.White)),
-                    shape,
-                )
+                .background(Brush.verticalGradient(listOf(Color(0xFF15264A), Night1)))
+                .border(1.dp, Brush.linearGradient(listOf(GoldLight.copy(alpha = 0.7f), Gold.copy(alpha = 0.15f), GoldLight.copy(alpha = 0.5f))), shape)
                 .padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(title, style = TextStyle(brush = GoldBrush, fontSize = 19.sp, fontFamily = Serif, letterSpacing = 1.sp, fontWeight = FontWeight.Medium))
+            Text(title, style = TextStyle(brush = NumberBrush, fontSize = 20.sp, fontFamily = Serif, letterSpacing = 1.sp, fontWeight = FontWeight.Medium))
             Spacer(Modifier.height(10.dp))
             Ornament(110.dp)
             Spacer(Modifier.height(18.dp))
@@ -913,17 +925,19 @@ private fun GoldButton(text: String, primary: Boolean, enabled: Boolean = true, 
     Box(
         Modifier
             .clip(shape)
-            .then(if (primary && enabled) Modifier.background(GoldBrush) else Modifier)
-            .border(1.dp, Gold.copy(alpha = if (enabled) 0.55f else 0.2f), shape)
+            .then(
+                if (primary && enabled) Modifier.background(GoldBrush)
+                else Modifier.border(1.dp, Gold.copy(alpha = if (enabled) 0.55f else 0.2f), shape)
+            )
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 11.dp),
     ) {
         Text(
             text,
             color = when {
-                !enabled -> Muted.copy(alpha = 0.5f)
-                primary -> Color.White
-                else -> GoldDeep
+                !enabled -> Slate.copy(alpha = 0.5f)
+                primary -> Night0
+                else -> Ivory
             },
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp,
@@ -948,21 +962,21 @@ private fun GoldField(
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
         textStyle = TextStyle(
-            color = InkSoft,
+            color = Ivory,
             fontSize = if (rtl) 20.sp else 16.sp,
             textDirection = if (rtl) TextDirection.Rtl else TextDirection.Content,
         ),
         shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Gold,
-            unfocusedBorderColor = Gold.copy(alpha = 0.3f),
-            focusedLabelColor = Gold,
-            unfocusedLabelColor = Muted,
-            cursorColor = Gold,
-            focusedTextColor = InkSoft,
-            unfocusedTextColor = InkSoft,
-            focusedContainerColor = Color.White.copy(alpha = 0.7f),
-            unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+            focusedBorderColor = GoldLight,
+            unfocusedBorderColor = Gold.copy(alpha = 0.35f),
+            focusedLabelColor = GoldLight,
+            unfocusedLabelColor = Slate,
+            cursorColor = GoldLight,
+            focusedTextColor = Ivory,
+            unfocusedTextColor = Ivory,
+            focusedContainerColor = Color.White.copy(alpha = 0.05f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.03f),
         ),
     )
 }
@@ -977,7 +991,7 @@ private fun ConfirmDialog(title: String, message: String, confirm: String, onCon
             GoldButton(confirm, primary = true, onClick = onConfirm)
         },
     ) {
-        Text(message, color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+        Text(message, color = Slate, fontSize = 14.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -1065,20 +1079,20 @@ private fun ListDialog(
                     Modifier
                         .fillMaxWidth()
                         .clip(shape)
-                        .background(if (on) GoldLight.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.7f))
-                        .border(1.dp, Gold.copy(alpha = if (on) 0.6f else 0.18f), shape)
+                        .background(if (on) Gold.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.04f))
+                        .border(1.dp, if (on) GoldLight.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.10f), shape)
                         .clickable { onSelect(z) }
                         .padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            z.okunus, color = if (on) GoldDeep else InkSoft, fontSize = 15.sp,
+                            z.okunus, color = if (on) GoldLight else Ivory, fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             "${z.count} · hedef ${z.target}",
-                            color = Muted, fontSize = 11.sp, letterSpacing = 0.5.sp,
+                            color = Slate, fontSize = 11.5.sp, letterSpacing = 0.5.sp,
                         )
                     }
                     IconTap(Icons.Filled.Edit) { onEdit(z) }
@@ -1093,11 +1107,11 @@ private fun ListDialog(
 private fun IconTap(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(38.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Gold, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = GoldLight, modifier = Modifier.size(19.dp))
     }
 }
