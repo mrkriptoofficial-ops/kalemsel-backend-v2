@@ -3,6 +3,7 @@ package com.gezgin.zikirmatik
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import androidx.compose.ui.graphics.luminance
 import java.time.LocalDate
 
 /** İş mantığı birim testleri: seri hesabı, tur/hedef gösterimi, içerik bütünlüğü. */
@@ -49,7 +50,7 @@ class LogicTest {
 
 class AmberTest {
     @Test fun sayi_arttikca_koyulasir() {
-        val l0 = androidx.compose.ui.graphics.Color(amberAt(0f).base.value).luminance()
+        val l0 = amberAt(0f).base.luminance()
         val l5 = amberAt(0.5f).base.luminance()
         val l1 = amberAt(1f).base.luminance()
         assertTrue(l0 > l5 && l5 > l1)
