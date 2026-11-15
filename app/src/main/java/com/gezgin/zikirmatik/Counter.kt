@@ -394,14 +394,15 @@ data class Quad(val a: Float, val b: Float, val c: Float, val d: Boolean)
 fun amberAt(t: Float): AmberTone {
     val x = t.coerceIn(0f, 1f)
     return AmberTone(
-        light = lerp(Color(0xFFFFE9AE), Color(0xFFD9923A), x),
-        base = lerp(Color(0xFFEBB54E), Color(0xFF8E4C0C), x),
-        edge = lerp(Color(0xFFB57519), Color(0xFF3E1E04), x),
+        // Kullanıcının seçtiği "altın sarısı" kehribar: açık altından koyu altın-bal tonuna
+        light = lerp(Color(0xFFFFF3C4), Color(0xFFF4C55A), x),
+        base = lerp(Color(0xFFF2CD5C), Color(0xFFC98A1C), x),
+        edge = lerp(Color(0xFFC28F22), Color(0xFF7A4A0A), x),
     )
 }
 
 /** Kubbe üzerindeki yazı koyu kehribarda açık, açık kehribarda koyu olur. */
-fun amberIsDark(t: Float): Boolean = t > 0.42f
+fun amberIsDark(@Suppress("UNUSED_PARAMETER") t: Float): Boolean = false  // altın tonda koyu yazı her durumda okunur (≥ 5,8:1)
 
 /** Çektikçe değişen renk: gece mavisi → menekşe → gül → kehribar → altın. */
 private fun phase(p: Pal, t: Float): Color {
@@ -518,7 +519,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     }
     // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
     drawCircle(
-        Brush.radialGradient(listOf(am.light.copy(alpha = 0.40f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
+        Brush.radialGradient(listOf(am.light.copy(alpha = 0.35f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
         radius = rDisc, center = c,
     )
     drawCircle(Brush.radialGradient(0.72f to Color.Transparent, 1f to am.edge.copy(alpha = 0.65f), center = c, radius = rDisc), rDisc, c)

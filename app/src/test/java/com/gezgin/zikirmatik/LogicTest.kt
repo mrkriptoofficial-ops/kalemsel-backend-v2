@@ -55,5 +55,9 @@ class AmberTest {
         val l1 = amberAt(1f).base.luminance()
         assertTrue(l0 > l5 && l5 > l1)
     }
-    @Test fun yazi_rengi_koyu_tonda_doner() { assertTrue(!amberIsDark(0.1f)); assertTrue(amberIsDark(0.9f)) }
+    @Test fun koyu_yazi_en_koyu_tonda_bile_okunur() {
+        val bg = amberAt(1f).base.luminance()
+        val fg = androidx.compose.ui.graphics.Color(0xFF2E1703).luminance()
+        assertTrue((bg + 0.05f) / (fg + 0.05f) >= 4.5f)
+    }
 }
