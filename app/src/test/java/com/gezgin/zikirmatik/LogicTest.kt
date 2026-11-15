@@ -46,3 +46,13 @@ class LogicTest {
     @Test fun sunnet_zikir_adlari_tekil() = assertEquals(LIB_SUNNET.size, LIB_SUNNET.map { it.zikirOkunus }.toSet().size)
     @Test fun namaz_tesbihati_100_eder() = assertEquals(100, VARSAYILAN_VIRDLER.first().total)
 }
+
+class AmberTest {
+    @Test fun sayi_arttikca_koyulasir() {
+        val l0 = androidx.compose.ui.graphics.Color(amberAt(0f).base.value).luminance()
+        val l5 = amberAt(0.5f).base.luminance()
+        val l1 = amberAt(1f).base.luminance()
+        assertTrue(l0 > l5 && l5 > l1)
+    }
+    @Test fun yazi_rengi_koyu_tonda_doner() { assertTrue(!amberIsDark(0.1f)); assertTrue(amberIsDark(0.9f)) }
+}

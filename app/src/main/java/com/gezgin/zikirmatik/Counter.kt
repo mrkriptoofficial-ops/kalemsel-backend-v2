@@ -2,6 +2,7 @@ package com.gezgin.zikirmatik
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -291,6 +292,9 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     val shake = remember { Animatable(0f) }
     LaunchedEffect(shakeKey) { if (shakeKey > 0 && !reduce) for (x in listOf(9f, -7f, 5f, -3f, 0f)) shake.animateTo(x, tween(45)) }
     val press by animateFloatAsState(if (pressed) 1f else 0f, spring(stiffness = 900f), label = "bas")
+    // Kehribar koyulaştıkça yazı rengi okunaklı kalacak şekilde döner
+    val darkAmber by remember { derivedStateOf { amberIsDark(prog.value) } }
+    val onAmber by animateColorAsState(if (darkAmber) Color(0xFFFFF4DC) else Color(0xFF2E1703), tween(400), label = "yazı")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight, 400.dp)
@@ -328,21 +332,21 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                     Text(
                         "$v",
                         style = TextStyle(
-                            brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.Normal,
+                            color = onAmber, fontFamily = Display, fontWeight = FontWeight.Normal,
                             fontSize = numSize, fontFeatureSettings = NUM_FEATURES,
-                            shadow = if (p.dark) Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 4f), 18f) else Shadow(p.goldDeep.copy(alpha = 0.18f), Offset(0f, 2f), 8f),
+                            shadow = if (darkAmber) Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 3f), 14f) else Shadow(Color(0xFFFFF4D6).copy(alpha = 0.6f), Offset(0f, 2f), 6f),
                         ),
                     )
                 }
                 Text(
                     L("HEDEF  ${fmt(d.target)}", "TARGET  ${fmt(d.target)}"),
-                    style = labelStyle(p.sub).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
+                    style = labelStyle(onAmber.copy(alpha = 0.78f)).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.padding(start = 2.dp),
                 )
             }
             Text(
                 L("TAMAMLANDI", "COMPLETE"),
-                style = labelStyle(p.goldText).copy(fontSize = small, letterSpacing = 3.sp),
+                style = labelStyle(onAmber).copy(fontSize = small, letterSpacing = 3.sp),
                 modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.19f) - lift).padding(start = 3.dp)
                     .graphicsLayer { val b = burst.value; alpha = if (b < 1f) sin(PI.toFloat() * b).coerceIn(0f, 1f) else 0f },
             )
@@ -374,6 +378,30 @@ val BEADS = listOf(
     BeadMat("Sedef", Color(0xFFE6DED3), Color(0xFFFFFFFF), Color(0xFFA0928A), Color(0xFFF7E3EE), Color(0xFFD9E5F3), 0.8f, false),
     BeadMat("Kristal", Color(0x66DCE6FF), Color(0xEEFFFFFF), Color(0xCC5E7AB4), Color(0x88FFFFFF), Color(0x55A9BDF0), 1f, false),
 )
+
+/** Kubbe kehribarının üç tonu. */
+class AmberTone(val light: Color, val base: Color, val edge: Color)
+
+private val AMBER_CLOUDS = listOf(
+    Quad(-0.32f, 0.10f, 0.42f, true), Quad(0.28f, -0.30f, 0.36f, false),
+    Quad(0.05f, 0.42f, 0.38f, false), Quad(0.38f, 0.22f, 0.30f, true),
+    Quad(-0.20f, -0.45f, 0.30f, true),
+)
+
+data class Quad(val a: Float, val b: Float, val c: Float, val d: Boolean)
+
+/** Sayı arttıkça (0 → 1) açık bal kehribarından derin konyak kehribarına. */
+fun amberAt(t: Float): AmberTone {
+    val x = t.coerceIn(0f, 1f)
+    return AmberTone(
+        light = lerp(Color(0xFFFFE9AE), Color(0xFFD9923A), x),
+        base = lerp(Color(0xFFEBB54E), Color(0xFF8E4C0C), x),
+        edge = lerp(Color(0xFFB57519), Color(0xFF3E1E04), x),
+    )
+}
+
+/** Kubbe üzerindeki yazı koyu kehribarda açık, açık kehribarda koyu olur. */
+fun amberIsDark(t: Float): Boolean = t > 0.42f
 
 /** Çektikçe değişen renk: gece mavisi → menekşe → gül → kehribar → altın. */
 private fun phase(p: Pal, t: Float): Color {
@@ -467,62 +495,59 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         radius = rB * 1.22f, center = c,
     )
 
-    // ── Kristal kubbe ──
+    // ── Kehribar kubbe: sayı arttıkça bal renginden konyak tonuna koyulaşır ──
+    val am = amberAt(prog)
     val sh = Offset(c.x, c.y + rDisc * 0.10f)
     drawCircle(
-        Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.45f else 0.14f), Color.Transparent), center = sh, radius = rDisc * 1.12f),
-        radius = rDisc * 1.12f, center = sh,
+        Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.50f else 0.20f), Color.Transparent), center = sh, radius = rDisc * 1.14f),
+        radius = rDisc * 1.14f, center = sh,
     )
+    // gövde
     drawCircle(
-        Brush.radialGradient(listOf(p.dome0, p.dome1, p.dome2), center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f), radius = rDisc * 1.5f),
+        Brush.radialGradient(
+            0f to am.light, 0.55f to am.base, 1f to am.edge,
+            center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.36f), radius = rDisc * 1.5f,
+        ),
         radius = rDisc, center = c,
     )
+    // doğal bulutlanma (sıkma kehribar dokusu)
+    for ((ox, oy, rr, light) in AMBER_CLOUDS) {
+        val q = Offset(c.x + ox * rDisc, c.y + oy * rDisc)
+        val col = if (light) am.light.copy(alpha = 0.30f) else am.edge.copy(alpha = 0.22f)
+        drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), center = q, radius = rr * rDisc), rr * rDisc, q)
+    }
+    // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
     drawCircle(
-        Brush.radialGradient(listOf(ph.copy(alpha = if (p.dark) 0.40f else 0.28f), Color.Transparent), center = Offset(c.x + rDisc * 0.38f, c.y + rDisc * 0.55f), radius = rDisc * 0.9f),
+        Brush.radialGradient(listOf(am.light.copy(alpha = 0.40f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
         radius = rDisc, center = c,
     )
-    val facet = if (p.dark) Color.White.copy(alpha = 0.04f) else p.goldDeep.copy(alpha = 0.06f)
-    val rf = rDisc * 0.64f
-    val oct = Path()
-    for (j in 0..7) {
-        val q = polar(rf, -90f + 22.5f + 45f * j)
-        if (j == 0) oct.moveTo(q.x, q.y) else oct.lineTo(q.x, q.y)
-    }
-    oct.close()
-    drawPath(oct, facet, style = Stroke(1.dp.toPx() * k))
-    for (j in 0..7) {
-        val a = -90f + 22.5f + 45f * j
-        drawLine(facet, polar(rf, a), polar(rDisc, a), 1.dp.toPx() * k)
-    }
+    drawCircle(Brush.radialGradient(0.72f to Color.Transparent, 1f to am.edge.copy(alpha = 0.65f), center = c, radius = rDisc), rDisc, c)
+    // ince altın çerçeve
     drawCircle(
         Brush.sweepGradient(listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight), center = c),
-        radius = rDisc, center = c, style = Stroke(1.6.dp.toPx() * k), alpha = if (p.dark) 0.85f else 0.9f,
+        radius = rDisc, center = c, style = Stroke(1.6.dp.toPx() * k), alpha = 0.85f,
     )
-    if (press > 0f) drawCircle(Color.Black.copy(alpha = 0.10f * press), rDisc, c)
+    if (press > 0f) drawCircle(Color.Black.copy(alpha = 0.12f * press), rDisc, c)
     if (pulse < 1f) {
         val a = 1f - pulse
         drawCircle(
-            Brush.radialGradient(listOf(ph.copy(alpha = a * 0.22f), Color.Transparent), center = c, radius = rDisc),
+            Brush.radialGradient(listOf(Color.White.copy(alpha = a * 0.20f), Color.Transparent), center = c, radius = rDisc),
             radius = rDisc, center = c,
         )
     }
 
-    // ── İlerleme yayı: başlangıç renginden şimdiki renge ──
-    drawCircle(if (p.dark) Color.White.copy(alpha = 0.10f) else p.goldDeep.copy(alpha = 0.12f), rArc, c, style = Stroke(stroke))
+    // ── İlerleme yayı (kehribar üzerinde krem rengi) ──
+    drawCircle(Color.Black.copy(alpha = 0.14f), rArc, c, style = Stroke(stroke))
     val sweep = 360f * prog
     if (sweep > 0.4f) {
         val tl = Offset(c.x - rArc, c.y - rArc)
         val sz = Size(rArc * 2, rArc * 2)
-        val f = prog.coerceIn(0.002f, 1f)
         rotate(-90f, c) {
-            drawArc(ph.copy(alpha = 0.16f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 2.4f, cap = StrokeCap.Round))
-            drawArc(
-                Brush.sweepGradient(0f to phase(p, 0f), f * 0.5f to phase(p, f * 0.5f), f to ph, center = c),
-                0f, sweep, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round),
-            )
+            drawArc(Color(0xFFFFF4D6).copy(alpha = 0.18f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 2.4f, cap = StrokeCap.Round))
+            drawArc(Color(0xFFFFF1CC).copy(alpha = 0.92f), 0f, sweep, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
         }
         val head = polar(rArc, -90f + sweep)
-        drawCircle(ph.copy(alpha = 0.40f), stroke * 2.4f, head)
+        drawCircle(Color.White.copy(alpha = 0.35f), stroke * 2.4f, head)
         drawCircle(Color.White, stroke * 0.85f, head)
     }
     // Cam parıltısı
