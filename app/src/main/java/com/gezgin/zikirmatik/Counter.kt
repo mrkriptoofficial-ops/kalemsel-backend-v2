@@ -26,6 +26,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -297,15 +298,16 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     val onAmber by animateColorAsState(if (darkAmber) Color(0xFFFFF4DC) else Color(0xFF2E1703), tween(400), label = "yazı")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val side = minOf(maxWidth, maxHeight, 400.dp)
+        // Kenar boşluklarına taşabilir (requiredSize); yükseklik imame ve püskül için %16 fazla
+        val side = minOf(maxWidth + 28.dp, maxHeight / DOME_H, 440.dp)
         val dens = LocalDensity.current
-        val numSize = with(dens) { (side * (if (shown >= 1000) 0.17f else 0.235f)).toSp() }
-        val lift = side * (24f / 380f)
+        val numSize = with(dens) { (side * (if (shown >= 1000) 0.18f else 0.25f)).toSp() }
+        val lift = side * ((DOME_H - 1f) / 2f)   // kubbe merkezi, kutunun merkezinden bu kadar yukarıda
         val small = with(dens) { (side * 0.032f).toSp() }
         val px = dens.density
         Box(
             Modifier
-                .size(side)
+                .requiredSize(side, side * DOME_H)
                 .graphicsLayer {
                     translationX = shake.value * px
                     val sc = 1f - 0.028f * press
@@ -347,14 +349,14 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
             Text(
                 L("TAMAMLANDI", "COMPLETE"),
                 style = labelStyle(onAmber).copy(fontSize = small, letterSpacing = 3.sp),
-                modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.19f) - lift).padding(start = 3.dp)
+                modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.21f) - lift).padding(start = 3.dp)
                     .graphicsLayer { val b = burst.value; alpha = if (b < 1f) sin(PI.toFloat() * b).coerceIn(0f, 1f) else 0f },
             )
             if (d.laps > 0) {
                 Text(
                     L("${d.laps}. TUR", "ROUND ${d.laps}"),
                     style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
-                    modifier = Modifier.align(Alignment.Center).offset(y = side * 0.17f - lift)
+                    modifier = Modifier.align(Alignment.Center).offset(y = side * 0.19f - lift)
                         .clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
                 )
             }
@@ -378,6 +380,9 @@ val BEADS = listOf(
     BeadMat("Sedef", Color(0xFFE6DED3), Color(0xFFFFFFFF), Color(0xFFA0928A), Color(0xFFF7E3EE), Color(0xFFD9E5F3), 0.8f, false),
     BeadMat("Kristal", Color(0x66DCE6FF), Color(0xEEFFFFFF), Color(0xCC5E7AB4), Color(0x88FFFFFF), Color(0x55A9BDF0), 1f, false),
 )
+
+/** Kubbe tuvalinin yükseklik/genişlik oranı (alttaki imame ve püskül için). */
+const val DOME_H = 1.16f
 
 /** Kubbe kehribarının üç tonu. */
 class AmberTone(val light: Color, val base: Color, val edge: Color)
@@ -473,14 +478,14 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
 }
 
 private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
-    val k = size.minDimension / 380.dp.toPx()
-    val c = Offset(center.x, center.y - 24.dp.toPx() * k)   // imame ve püskül için aşağıda yer aç
-    val rB = size.minDimension / 2 - 42.dp.toPx() * k        // tespih ipinin yarıçapı
+    val k = size.width / 380.dp.toPx()
     val gapDeg = 30f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / 33f
-    val slot = (2f * PI.toFloat() * rB * seg / 360f)
-    val r = slot * 0.48f                                     // birbirine değen yuvarlak taneler
-    val rDisc = rB - r - 9.dp.toPx() * k
+    val f = PI.toFloat() * seg / 360f                        // tane yarıçapı / ip yarıçapı (birbirine değen taneler)
+    val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f)  // taneler genişliği tam kullanır
+    val r = rB * f
+    val c = Offset(size.width / 2f, size.width / 2f)         // üstte kare; alttaki fazlalık imame ve püskül için
+    val rDisc = rB - r - 7.dp.toPx() * k
     val rArc = rDisc - 13.dp.toPx() * k
     val stroke = 3.4.dp.toPx() * k
     val ph = phase(p, prog)
@@ -551,17 +556,15 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawCircle(Color.White.copy(alpha = 0.35f), stroke * 2.4f, head)
         drawCircle(Color.White, stroke * 0.85f, head)
     }
-    // Cam parıltısı
-    rotate(-35f, c) {
-        drawOval(
-            Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = (if (p.dark) 0.18f else 0.50f) * (1f - 0.5f * press)), Color.Transparent),
-                startY = c.y - rDisc * 0.95f, endY = c.y - rDisc * 0.40f,
-            ),
-            topLeft = Offset(c.x - rDisc * 0.6f, c.y - rDisc * 0.95f),
-            size = Size(rDisc * 1.2f, rDisc * 0.55f),
-        )
-    }
+    // Gerçek kehribar yansıması (tanelerle aynı ışık): alttan sıcak yansıma, ipeksi parlaklık, keskin ışık noktası
+    val pr = 1f - 0.4f * press
+    val bounce = Offset(c.x + rDisc * 0.12f, c.y + rDisc * 0.56f)
+    drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.30f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
+    val sheen = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f)
+    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.26f * pr), Color.Transparent), center = sheen, radius = rDisc * 0.52f), rDisc * 0.52f, sheen)
+    val spot = Offset(c.x - rDisc * 0.40f, c.y - rDisc * 0.48f)
+    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.45f * pr), Color.Transparent), center = spot, radius = rDisc * 0.13f), rDisc * 0.13f, spot)
+    drawCircle(Color.White.copy(alpha = 0.95f * pr), rDisc * 0.045f, spot)
 
     // ── Tespih ipi ──
     drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
@@ -617,7 +620,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     }
 
     // ── İmame: telkari başlık + uzun tane + telkari uç + halka + püskül ──
-    val ir = minOf(r, 12.dp.toPx() * k)
+    val ir = minOf(r, 13.dp.toPx() * k)
     val x0 = c.x
     var y = c.y + rB - ir * 0.55f
     // üst telkari koni
