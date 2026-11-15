@@ -46,6 +46,9 @@ import kotlin.math.ceil
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -459,6 +462,39 @@ class BeadSprites {
     }
 }
 
+/**
+ * Berrak kehribar "damlası": opak sıkma kehribarın içindeki ışık geçiren bölge.
+ * Birbirine kaynamış üç yumuşak elips (berrak bal tonu) + ışığın geçtiği kenarda hafif sıcaklık.
+ */
+private fun DrawScope.drawAmberDrop(x: Float, y: Float, rr: Float, angle: Float) {
+    val core = Brush.radialGradient(0f to DROP_CORE.copy(alpha = 0.32f), 0.6f to DROP_EDGE.copy(alpha = 0.20f), 1f to Color.Transparent, center = Offset.Zero, radius = 1f)
+    for ((dx, dy, sx, sy) in DROP_PARTS) {
+        val px = x + dx * rr
+        val py = y + dy * rr
+        withTransform({ translate(px, py); rotate(angle, Offset.Zero); scale(rr * sx, rr * sy, Offset.Zero) }) {
+            drawCircle(core, 1f, Offset.Zero)
+        }
+    }
+    val gx = x + rr * 0.25f
+    val gy = y + rr * 0.32f
+    val glow = Brush.radialGradient(listOf(DROP_GLOW.copy(alpha = 0.28f), Color.Transparent), center = Offset.Zero, radius = 1f)
+    withTransform({ translate(gx, gy); rotate(angle, Offset.Zero); scale(rr * 0.7f, rr * 0.35f, Offset.Zero) }) {
+        drawCircle(glow, 1f, Offset.Zero)
+    }
+}
+
+private val DROP_CORE = Color(0xFFB06A0C)
+private val DROP_EDGE = Color(0xFFB8760F)
+private val DROP_GLOW = Color(0xFFF5BE52)
+private val DROP_PARTS = listOf(Quad4(0f, 0f, 1f, 0.62f), Quad4(0.45f, 0.18f, 0.7f, 0.5f), Quad4(-0.35f, 0.22f, 0.6f, 0.42f))
+private data class Quad4(val a: Float, val b: Float, val c: Float, val d: Float)
+
+/** Tane çeşitlerine göre damla yerleşimi: (x, y, boyut) tane yarıçapı cinsinden. */
+private val BEAD_DROPS = listOf(
+    listOf(Triple(0.25f, 0.30f, 0.55f)), emptyList(), listOf(Triple(-0.30f, 0.28f, 0.50f)),
+    listOf(Triple(0.10f, 0.45f, 0.55f)), emptyList(), listOf(Triple(0.28f, -0.05f, 0.45f)),
+)
+
 /** Tek bir tane: gövde, doğal bulutlanma, kenar koyulaşması, yansıyan ışık, ipeksi parlaklık ve keskin ışık noktası. */
 private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(
@@ -473,6 +509,13 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     val r2 = r * (0.30f + 0.2f * h1)
     drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f), Color.Transparent), center = m1, radius = r1), r1, m1)
     drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.28f), Color.Transparent), center = m2, radius = r2), r2, m2)
+    if (m.name == "Kehribar") {
+        clipPath(Path().apply { addOval(Rect(q, r)) }) {
+            BEAD_DROPS[variant % BEAD_DROPS.size].forEachIndexed { k, (dx, dy, dr) ->
+                drawAmberDrop(q.x + dx * r, q.y + dy * r, dr * r, 20f + k * 55f + variant * 30f)
+            }
+        }
+    }
     drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f), center = q, radius = r), r, q)
     // Gerçek kehribardaki gibi: geniş beyaz parlama yok; küçük, sıcak tonlu tek bir ışık noktası
     val bo = Offset(q.x + r * 0.12f, q.y + r * 0.52f)
@@ -563,15 +606,13 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawCircle(Color.White.copy(alpha = 0.35f), stroke * 2.4f, head)
         drawCircle(Color.White, stroke * 0.85f, head)
     }
-    // Gerçek kehribar yansıması (tanelerle aynı ışık): alttan sıcak yansıma, ipeksi parlaklık, keskin ışık noktası
-    val pr = 1f - 0.4f * press
+    // Kubbede beyaz yansıma yok; yalnızca berrak kehribar damlaları ve alttan gelen sıcak ışık
+    clipPath(Path().apply { addOval(Rect(c, rDisc)) }) {
+        drawAmberDrop(c.x - rDisc * 0.50f, c.y + rDisc * 0.45f, rDisc * 0.42f, 20f)
+        drawAmberDrop(c.x + rDisc * 0.52f, c.y - rDisc * 0.40f, rDisc * 0.34f, 75f)
+    }
     val bounce = Offset(c.x + rDisc * 0.12f, c.y + rDisc * 0.56f)
     drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.10f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
-    val sheen = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f)
-    drawCircle(Brush.radialGradient(listOf(WARM_SHEEN.copy(alpha = 0.10f * pr), Color.Transparent), center = sheen, radius = rDisc * 0.52f), rDisc * 0.52f, sheen)
-    val spot = Offset(c.x - rDisc * 0.42f, c.y - rDisc * 0.50f)
-    drawCircle(Brush.radialGradient(listOf(WARM_HALO.copy(alpha = 0.30f * pr), Color.Transparent), center = spot, radius = rDisc * 0.12f), rDisc * 0.12f, spot)
-    drawCircle(WARM_SPEC.copy(alpha = 0.85f * pr), rDisc * 0.035f, spot)
 
     // ── Tespih ipi ──
     drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))

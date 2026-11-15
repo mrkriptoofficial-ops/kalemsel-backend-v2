@@ -557,7 +557,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 2.6\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.6\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 2.7\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.7\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
