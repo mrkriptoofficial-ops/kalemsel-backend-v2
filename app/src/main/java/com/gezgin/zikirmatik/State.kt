@@ -265,7 +265,10 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             endSession()
             select(z.id)
         } else {
-            replace(existing.copy(okunus = okunus, arapca = arapca, anlam = anlam, fazilet = fazilet, target = target))
+            // Düzenleme paneli açıkken (ör. widget'tan) çekilenler kaybolmasın: güncel sayıyı kullan
+            val cur = zikirs.firstOrNull { it.id == existing.id } ?: return
+            replace(cur.copy(okunus = okunus, arapca = arapca, anlam = anlam, fazilet = fazilet, target = target,
+                count = Engine.countOnTargetChange(cur.count, target, settings.stopAtTarget)))
         }
     }
 

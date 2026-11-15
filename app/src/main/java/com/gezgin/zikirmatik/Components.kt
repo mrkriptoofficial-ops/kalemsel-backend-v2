@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.os.SystemClock
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.sin
@@ -69,13 +72,17 @@ fun Sky(p: Pal) {
     // Yavaş "nefes": saniyede 10 kare yeterli; ekran sürekli 120 Hz çizmez, pil korunur.
     var a by remember { mutableFloatStateOf(0.9f) }
     val reduce = rememberReducedMotion()
-    LaunchedEffect(reduce, p.stars) {
+    val owner = LocalLifecycleOwner.current
+    LaunchedEffect(reduce, p.stars, owner) {
         if (reduce || p.stars < 1f) { a = 1f; return@LaunchedEffect }
-        val t0 = SystemClock.uptimeMillis()
-        while (true) {
-            val t = ((SystemClock.uptimeMillis() - t0) % 18000L) / 18000f
-            a = 0.85f + 0.15f * sin(2f * PI.toFloat() * t)
-            delay(100)
+        // Uygulama arka plandayken döngü durur
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val t0 = SystemClock.uptimeMillis()
+            while (true) {
+                val t = ((SystemClock.uptimeMillis() - t0) % 18000L) / 18000f
+                a = 0.85f + 0.15f * sin(2f * PI.toFloat() * t)
+                delay(100)
+            }
         }
     }
     Box(Modifier.fillMaxSize()) {

@@ -430,14 +430,14 @@ class Repo(ctx: Context) {
                 sound = o.optBoolean("sound", false),
                 volumeKeys = o.optBoolean("volumeKeys", true),
                 stopAtTarget = o.optBoolean("stopAtTarget", false),
-                guardMs = o.optInt("guardMs", 70),
+                guardMs = o.optInt("guardMs", 70).coerceIn(0, 1000),
                 fontScale = o.optDouble("fontScale", 1.0).toFloat().coerceIn(0.85f, 1.4f),
-                milestone = o.optInt("milestone", 33),
-                dailyGoal = o.optInt("dailyGoal", 0),
+                milestone = o.optInt("milestone", 33).coerceIn(0, 100_000),
+                dailyGoal = o.optInt("dailyGoal", 0).coerceIn(0, 100_000),
                 remMorning = o.optBoolean("remMorning", false),
-                morningMin = o.optInt("morningMin", 7 * 60),
+                morningMin = o.optInt("morningMin", 7 * 60).coerceIn(0, 1439),
                 remEvening = o.optBoolean("remEvening", false),
-                eveningMin = o.optInt("eveningMin", 18 * 60 + 30),
+                eveningMin = o.optInt("eveningMin", 18 * 60 + 30).coerceIn(0, 1439),
             )
         }.getOrDefault(Settings())
     }
@@ -577,9 +577,9 @@ class Repo(ctx: Context) {
             anlam = o.optString("an"),
             fazilet = o.optString("fz"),
             count = o.optInt("c", 0).coerceAtLeast(0),
-            target = o.optInt("t", 33).coerceAtLeast(1),
+            target = o.optInt("t", 33).coerceIn(1, 1_000_000),
         )
-    }
+    }.distinctBy { it.id }
 
     private fun zikirsTo(list: List<Zikir>) = JSONArray().apply {
         list.forEach {
@@ -597,10 +597,10 @@ class Repo(ctx: Context) {
             o.getLong("id"), o.getString("name"),
             (0 until sa.length()).map { j ->
                 val s = sa.getJSONObject(j)
-                Step(s.optString("ar"), s.getString("ok"), s.optString("an"), s.optInt("t", 33).coerceAtLeast(1))
+                Step(s.optString("ar"), s.getString("ok"), s.optString("an"), s.optInt("t", 33).coerceIn(1, 1_000_000))
             },
         )
-    }
+    }.distinctBy { it.id }
 
     private fun virdsTo(v: List<Vird>) = JSONArray().apply {
         v.forEach { vd ->

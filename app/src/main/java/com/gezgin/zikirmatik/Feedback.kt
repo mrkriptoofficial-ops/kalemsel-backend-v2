@@ -45,7 +45,12 @@ class Feedback(ctx: Context) {
     init {
         runCatching {
             val f = File(ctx.cacheDir, "tane_v3.wav")
-            if (!f.exists()) f.writeBytes(beadWav())
+            // Yarım yazılmış dosya kalmasın: önce geçici dosyaya yaz, sonra taşı
+            if (f.length() != 44L + 2880L * 2L) {
+                val tmp = File(ctx.cacheDir, "tane.tmp")
+                tmp.writeBytes(beadWav())
+                if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+            }
             val sp = SoundPool.Builder()
                 .setMaxStreams(4)
                 .setAudioAttributes(

@@ -3,7 +3,14 @@ package com.gezgin.zikirmatik
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.app.Application
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings as AndroidSettings
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -48,14 +55,23 @@ import java.time.LocalDate
 
 enum class Scr { SAYAC, ZIKIRLER, KUTUPHANE, TESBIHAT, ISTATISTIK, AYARLAR, ODAK }
 
+/** Uygulama durumu ekran yeniden oluşturulsa da (tema, yazı boyutu, DeX) korunur. */
+class ZikirVM(app: Application) : AndroidViewModel(app) {
+    val st = AppState(app, Repo(app), Feedback(app), viewModelScope).also { it.load() }
+    override fun onCleared() = st.fb.release()
+}
+
 class MainActivity : ComponentActivity() {
-    var onVolumeKey: (() -> Boolean)? = null
+    var onVolumeKey: (() -> Unit)? = null
+    var volumeActive: () -> Boolean = { false }
+    var onFocusBack: (() -> Unit)? = null
     private var barsDark: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyBars(true)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Zorla durdurma, "derin uyku" ya da yedekten geri yükleme sonrası alarmlar kaybolmasın
+        Reminders.schedule(applicationContext, Repo(this).loadSettings())
         setContent { ZikirApp(this) }
     }
 
@@ -67,24 +83,30 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
+    private fun isVolume(k: Int) = k == KeyEvent.KEYCODE_VOLUME_DOWN || k == KeyEvent.KEYCODE_VOLUME_UP
+
+    // Ses tuşları yalnızca sayaç/odak ekranında ve ayar açıkken sayar; aksi halde ses normal ayarlanır
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            val h = onVolumeKey
-            if (h != null) {
-                if ((event?.repeatCount ?: 0) > 0) return true
-                if (h()) return true
-            }
+        if (isVolume(keyCode) && volumeActive()) {
+            if ((event?.repeatCount ?: 0) == 0) onVolumeKey?.invoke()
+            return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean =
+        if (isVolume(keyCode) && volumeActive()) true else super.onKeyUp(keyCode, event)
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) onFocusBack?.invoke()
     }
 }
 
 @Composable
 fun ZikirApp(act: MainActivity) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val st = remember { AppState(ctx.applicationContext, Repo(ctx), Feedback(ctx.applicationContext), scope).also { it.load() } }
-    DisposableEffect(Unit) { onDispose { st.fb.release() } }
+    val st = viewModel<ZikirVM>().st
 
     var screen by rememberSaveable { mutableStateOf(Scr.SAYAC) }
     var sheet by remember { mutableStateOf<SheetKind?>(null) }
@@ -100,12 +122,21 @@ fun ZikirApp(act: MainActivity) {
     LaunchedEffect(pal.dark) { act.applyBars(pal.dark) }
 
     // Ses tuşları: sadece sayaç ve odak ekranında, panel kapalıyken
-    val volumeHandler by rememberUpdatedState {
-        if (st.settings.volumeKeys && sheet == null && (screen == Scr.SAYAC || screen == Scr.ODAK)) { st.tap(); true } else false
-    }
+    val active by rememberUpdatedState(st.settings.volumeKeys && sheet == null && (screen == Scr.SAYAC || screen == Scr.ODAK))
     DisposableEffect(Unit) {
-        act.onVolumeKey = { volumeHandler() }
-        onDispose { act.onVolumeKey = null }
+        act.onVolumeKey = { st.tap() }
+        act.volumeActive = { active }
+        // Samsung açılır pencere gibi durumlarda widget'tan gelen sayımları kaçırma
+        act.onFocusBack = { st.reloadCounts() }
+        onDispose { act.onVolumeKey = null; act.volumeActive = { false }; act.onFocusBack = null }
+    }
+
+    // Ekran yalnızca sayaç ve odak modunda açık kalır (pil ve OLED yanması için)
+    val keepOn = screen == Scr.SAYAC || screen == Scr.ODAK
+    DisposableEffect(keepOn) {
+        if (keepOn) act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
     // Yedekleme / geri yükleme / bildirim izni
@@ -125,13 +156,32 @@ fun ZikirApp(act: MainActivity) {
             } else st.toast(L("Bu dosya geçerli bir Zikirmatik yedeği değil", "This file is not a valid Zikirmatik backup"))
         }
     }
+    // Bildirim izni reddedilirse hatırlatıcıları kapat ve kullanıcıyı ayara yönlendir
+    val openNotifySettings = {
+        runCatching {
+            ctx.startActivity(
+                Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(AndroidSettings.EXTRA_APP_PACKAGE, ctx.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+        Unit
+    }
     val notifyL = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted) st.toast(L("Bildirim izni verilmedi; hatırlatıcılar görünmeyecek", "Notification permission denied; reminders won't appear"))
+        if (!granted) {
+            st.update { it.copy(remMorning = false, remEvening = false) }
+            st.toast(L("Bildirim izni verilmedi; hatırlatıcılar kapatıldı", "Notification permission denied; reminders turned off"))
+            openNotifySettings()
+        }
     }
     val askNotify = {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) notifyL.launch(Manifest.permission.POST_NOTIFICATIONS)
+        ) {
+            notifyL.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) {
+            st.toast(L("Bildirimler kapalı; hatırlatıcı için açmalısın", "Notifications are off; turn them on for reminders"))
+            openNotifySettings()
+        }
     }
 
     val go: (Scr) -> Unit = { s -> sheet = null; screen = s }

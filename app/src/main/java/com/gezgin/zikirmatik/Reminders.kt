@@ -14,6 +14,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.VibrationEffect
+import android.os.VibrationAttributes
+import android.media.AudioAttributes
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -43,7 +45,8 @@ object Reminders {
         val now = ZonedDateTime.now()
         var t = now.withHour(minutes / 60).withMinute(minutes % 60).withSecond(0).withNano(0)
         if (!t.isAfter(now.plusSeconds(20))) t = t.plusDays(1)
-        am.setWindow(AlarmManager.RTC_WAKEUP, t.toInstant().toEpochMilli(), 5 * 60 * 1000L, pi)
+        // Doze sırasında da çalışır; tam zamanlı alarm izni gerektirmez
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t.toInstant().toEpochMilli(), pi)
     }
 
     fun notify(ctx: Context, code: Int) {
@@ -106,9 +109,18 @@ class ZikirWidget : AppWidgetProvider() {
             if (z != null && s.haptic > 0) {
                 val vib = ctx.systemVibrator()
                 if (vib.hasVibrator()) {
-                    if (z.count > 0 && z.count % z.target == 0) vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60, 70, 220), -1))
-                    else if (Build.VERSION.SDK_INT >= 29) vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-                    else vib.vibrate(VibrationEffect.createOneShot(14, 150))
+                    val effect = when {
+                        z.count > 0 && z.count % z.target == 0 -> VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60, 70, 220), -1)
+                        Build.VERSION.SDK_INT >= 29 -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                        else -> VibrationEffect.createOneShot(14, 150)
+                    }
+                    // Arka plandaki titreşim ancak bu kullanım türleriyle iletilir (Android 9+)
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        vib.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vib.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT).build())
+                    }
                 }
             }
             refresh(ctx)

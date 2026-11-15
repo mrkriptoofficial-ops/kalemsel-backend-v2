@@ -168,14 +168,14 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
                 }
             }
         }
-        val items = when (tab) { 0 -> LIB_SUNNET; 1 -> LIB_GUNLUK; 2 -> LIB_SALAVAT; else -> LIB_ESMA }
-        AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { _ ->
+        AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { t ->
+            val items = when (t) { 0 -> LIB_SUNNET; 1 -> LIB_GUNLUK; 2 -> LIB_SALAVAT; else -> LIB_ESMA }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (tab == 0) item {
+                if (t == 0) item {
                     Text(
                         L("Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler. Her birinin faziletini bildiren hadisin kaynağı yanında yazılıdır.", "Dhikr recommended by the Prophet (peace be upon him). The hadith source for each virtue is noted beside it."),
                         style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center, fontSize = 13.sp),
