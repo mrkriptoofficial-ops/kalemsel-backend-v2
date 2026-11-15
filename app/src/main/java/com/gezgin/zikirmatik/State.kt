@@ -49,6 +49,8 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     var total by mutableIntStateOf(0)
     var bestStreak by mutableIntStateOf(0)
     val virds = mutableStateListOf<Vird>()
+    /** Gün → (zikir adı → tamamlanan tur sayısı) */
+    val laps = mutableStateMapOf<String, Map<String, Int>>()
     var session by mutableStateOf<Session?>(null)
 
     // görsel olay tetikleyicileri
@@ -68,11 +70,12 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         total = repo.total
         bestStreak = maxOf(repo.bestStreak, streakOf(history))
         virds.clear(); virds.addAll(repo.loadVirds())
-        session = repo.loadSession()?.takeIf { s -> virds.any { it.id == s.virdId } }
-        // Uygulama, adım tamamlandığı anda kapandıysa takılı kalmasın
-        session?.let { s ->
-            virds.firstOrNull { it.id == s.virdId }?.steps?.getOrNull(s.step)?.let { if (s.count >= it.target) advance(s.virdId, s.step) }
-        }
+        laps.clear(); laps.putAll(repo.loadLaps())
+        // Uygulama adım tamamlandığı anda kapandıysa takılı kalmasın
+        val (ns, finished) = Engine.normalize(repo.loadSession(), virds)
+        session = ns
+        repo.saveSession(ns)
+        if (finished) toast(L("Tesbihat tamamlandı · Allah kabul etsin", "Sequence complete · May Allah accept it"))
     }
 
     /** Widget gibi dış kaynakların değişikliklerini al. */
@@ -85,6 +88,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         }
         if (zikirs.none { it.id == selId }) selId = zikirs.first().id
         history.clear(); history.putAll(repo.loadHistory())
+        laps.clear(); laps.putAll(repo.loadLaps())
         total = repo.total
         bestStreak = maxOf(repo.bestStreak, streakOf(history))
     }
@@ -115,58 +119,79 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             val v = virds.firstOrNull { it.id == s.virdId }
             val step = v?.steps?.getOrNull(s.step)
             if (v == null || step == null) { endSession(); return }
-            if (s.count >= step.target) return
-            val n = s.count + 1
-            session = s.copy(count = n)
-            repo.saveSession(session)
-            addHistory(1)
-            feedback(n, step.target)
-            if (n >= step.target) {
-                celebrateKey++
-                val vid = v.id
-                val si = s.step
-                scope.launch { delay(1200); advance(vid, si) }
-            } else pulseKey++
+            when (val r = Engine.tapStep(s.count, step.target, settings.milestone)) {
+                is Engine.Tap.Counted -> {
+                    session = s.copy(count = r.count)
+                    repo.saveSession(session)
+                    addHistory(1)
+                    feedback(r)
+                    if (r.completed) {
+                        addLap(step.okunus, 1)
+                        celebrateKey++
+                        val vid = v.id
+                        val si = s.step
+                        scope.launch { delay(1200); advance(vid, si) }
+                    } else pulseKey++
+                }
+                else -> Unit
+            }
             return
         }
 
         val z = current
-        if (settings.stopAtTarget && z.count >= z.target) {
-            shakeKey++
-            fb.error(settings.haptic)
-            return
+        when (val r = Engine.tapFree(z.count, z.target, settings.stopAtTarget, settings.milestone)) {
+            Engine.Tap.Blocked -> { shakeKey++; fb.error(settings.haptic) }
+            Engine.Tap.Ignored -> Unit
+            is Engine.Tap.Counted -> {
+                replace(z.copy(count = r.count))
+                addHistory(1)
+                feedback(r)
+                if (r.completed) { addLap(z.okunus, 1); celebrateKey++ } else pulseKey++
+            }
         }
-        val n = z.count + 1
-        replace(z.copy(count = n))
-        addHistory(1)
-        feedback(n, z.target)
-        if (n % z.target == 0) celebrateKey++ else pulseKey++
     }
 
     /** Kullanıcı titreşimi kapattıysa hiçbir yerde titreşme. */
     private fun soft(level: Int = 1) = fb.tap(if (settings.haptic == 0) 0 else level)
 
-    private fun feedback(n: Int, target: Int) {
+    private fun feedback(r: Engine.Tap.Counted) {
         fb.click(settings.sound)   // ses, titreşimden daha geç algılanır: önce başlat
         val h = settings.haptic
         when {
-            n % target == 0 -> fb.complete(h)
-            settings.milestone > 0 && n % settings.milestone == 0 -> fb.milestone(h)
+            r.completed -> fb.complete(h)
+            r.milestone -> fb.milestone(h)
             else -> fb.tap(h)
         }
     }
+
+    private fun addLap(name: String, d: Int) {
+        val k = dayKey()
+        val m = (laps[k] ?: emptyMap()).toMutableMap()
+        val v = ((m[name] ?: 0) + d).coerceAtLeast(0)
+        if (v == 0) m.remove(name) else m[name] = v
+        if (m.isEmpty()) laps.remove(k) else laps[k] = m
+        repo.saveLaps(laps)
+    }
+
+    fun lapsToday(): Map<String, Int> = laps[dayKey()] ?: emptyMap()
+    fun lapsTotal(): Int = laps.values.sumOf { it.values.sum() }
 
     fun undo() {
         val s = session
         if (s != null) {
             if (s.count > 0) {
+                val step = virds.firstOrNull { it.id == s.virdId }?.steps?.getOrNull(s.step)
+                if (step != null && s.count >= step.target) addLap(step.okunus, -1)
                 session = s.copy(count = s.count - 1); repo.saveSession(session); addHistory(-1); soft()
             }
             return
         }
-        val z = current.let { if (settings.stopAtTarget && it.count > it.target) it.copy(count = it.target) else it }
-        if (z.count > 0) {
-            replace(z.copy(count = z.count - 1)); addHistory(-1); soft()
+        val z = current
+        val n = Engine.undoFree(z.count, z.target, settings.stopAtTarget)
+        if (n != null) {
+            val visibleBefore = n + 1
+            if (visibleBefore % z.target == 0) addLap(z.okunus, -1)
+            replace(z.copy(count = n)); addHistory(-1); soft()
         } else fb.error(settings.haptic)
     }
 
@@ -206,7 +231,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     fun setTarget(t: Int) {
         val nt = t.coerceIn(1, 1_000_000)
         val z = current
-        replace(z.copy(target = nt, count = if (settings.stopAtTarget) z.count.coerceAtMost(nt) else z.count))
+        replace(z.copy(target = nt, count = Engine.countOnTargetChange(z.count, nt, settings.stopAtTarget)))
     }
 
     fun resetCurrent() {
@@ -215,10 +240,10 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             if (s.count == 0) return
             session = s.copy(count = 0); repo.saveSession(session)
             scope.launch {
-                val r = snack.showSnackbar("Adım sıfırlandı", "Geri al", duration = SnackbarDuration.Short)
+                val r = snack.showSnackbar(L("Adım sıfırlandı", "Step reset"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
                 val now = session
                 if (r == SnackbarResult.ActionPerformed && now != null && now.virdId == s.virdId && now.step == s.step) {
-                    session = now.copy(count = now.count + s.count); repo.saveSession(session)
+                    session = now.copy(count = Engine.undoReset(now.count, s.count)); repo.saveSession(session)
                 }
             }
             return
@@ -227,8 +252,8 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         if (prev.count == 0) return
         replace(prev.copy(count = 0))
         scope.launch {
-            val r = snack.showSnackbar("${prev.okunus} sıfırlandı", "Geri al", duration = SnackbarDuration.Short)
-            if (r == SnackbarResult.ActionPerformed) zikirs.firstOrNull { it.id == prev.id }?.let { replace(it.copy(count = it.count + prev.count)) }
+            val r = snack.showSnackbar(L("${prev.okunus} sıfırlandı", "${prev.okunus} reset"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
+            if (r == SnackbarResult.ActionPerformed) zikirs.firstOrNull { it.id == prev.id }?.let { replace(it.copy(count = Engine.undoReset(it.count, prev.count))) }
         }
     }
 
@@ -252,7 +277,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         repo.saveZikirs(zikirs)
         if (selId == z.id) { selId = zikirs[(idx - 1).coerceAtLeast(0)].id; repo.selId = selId }
         scope.launch {
-            val r = snack.showSnackbar("${z.okunus} silindi", "Geri al", duration = SnackbarDuration.Short)
+            val r = snack.showSnackbar(L("${z.okunus} silindi", "${z.okunus} deleted"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed && zikirs.none { it.id == z.id }) {
                 zikirs.add(idx.coerceAtMost(zikirs.size), z)
                 repo.saveZikirs(zikirs)
@@ -279,7 +304,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         zikirs.add(z)
         repo.saveZikirs(zikirs)
         soft(2)
-        scope.launch { snack.showSnackbar("${item.zikirOkunus} zikirlerine eklendi", duration = SnackbarDuration.Short) }
+        scope.launch { snack.showSnackbar(L("${item.zikirOkunus} zikirlerine eklendi", "${item.zikirOkunus} added to your dhikr"), duration = SnackbarDuration.Short) }
     }
 
     // ───────────── Tesbihat / vird ─────────────
@@ -304,14 +329,15 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         val s = session ?: return
         if (s.virdId != vid || s.step != fromStep) return
         val v = virds.firstOrNull { it.id == vid } ?: run { endSession(); return }
-        if (!skipping && s.count < (v.steps.getOrNull(fromStep)?.target ?: 0)) return
+        if (!Engine.shouldAdvance(s, v, vid, fromStep, skipping)) return
         cardDir = 1
-        if (s.step + 1 < v.steps.size) {
-            session = Session(vid, s.step + 1, 0)
+        val next = Engine.nextStep(s, v)
+        if (next != null) {
+            session = next
             repo.saveSession(session)
         } else {
             endSession()
-            scope.launch { snack.showSnackbar("${v.name} tamamlandı · Allah kabul etsin", duration = SnackbarDuration.Long) }
+            scope.launch { snack.showSnackbar(L("${v.name} tamamlandı · Allah kabul etsin", "${v.name} complete · May Allah accept it"), duration = SnackbarDuration.Long) }
         }
     }
 
@@ -322,8 +348,8 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             if (i >= 0) virds[i] = existing.copy(name = name, steps = steps)
             val s = session
             if (s != null && s.virdId == existing.id) {
-                if (s.step >= steps.size) endSession()
-                else if (s.count > steps[s.step].target) { session = s.copy(count = steps[s.step].target); repo.saveSession(session) }
+                val ns = Engine.sessionAfterEdit(s, steps)
+                if (ns == null) endSession() else if (ns != s) { session = ns; repo.saveSession(ns) }
             }
         }
         repo.saveVirds(virds)
@@ -336,7 +362,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         repo.saveVirds(virds)
         if (session?.virdId == v.id) endSession()
         scope.launch {
-            val r = snack.showSnackbar("${v.name} silindi", "Geri al", duration = SnackbarDuration.Short)
+            val r = snack.showSnackbar(L("${v.name} silindi", "${v.name} deleted"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed) { virds.add(idx.coerceAtMost(virds.size), v); repo.saveVirds(virds) }
         }
     }

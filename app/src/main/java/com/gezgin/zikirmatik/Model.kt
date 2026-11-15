@@ -27,6 +27,7 @@ data class Session(val virdId: Long, val step: Int, val count: Int)
 data class Settings(
     val theme: Int = 0,            // 0 Safir, 1 Gece (OLED siyah), 2 Fildişi
     val bead: Int = 0,             // 0 Kehribar, 1 Oltu, 2 Sedef, 3 Kristal
+    val lang: Int = 0,             // 0 sistem, 1 Türkçe, 2 English
     val haptic: Int = 2,           // 0 kapalı, 1 hafif, 2 normal, 3 güçlü
     val sound: Boolean = false,
     val volumeKeys: Boolean = true,
@@ -424,6 +425,7 @@ class Repo(ctx: Context) {
             Settings(
                 theme = o.optInt("theme", 0).coerceIn(0, 2),
                 bead = o.optInt("bead", 0).coerceIn(0, 3),
+                lang = o.optInt("lang", 0).coerceIn(0, 2),
                 haptic = o.optInt("haptic", 2).coerceIn(0, 3),
                 sound = o.optBoolean("sound", false),
                 volumeKeys = o.optBoolean("volumeKeys", true),
@@ -442,7 +444,7 @@ class Repo(ctx: Context) {
 
     fun saveSettings(s: Settings) {
         val o = JSONObject()
-            .put("theme", s.theme).put("bead", s.bead).put("haptic", s.haptic).put("sound", s.sound)
+            .put("theme", s.theme).put("bead", s.bead).put("lang", s.lang).put("haptic", s.haptic).put("sound", s.sound)
             .put("volumeKeys", s.volumeKeys).put("stopAtTarget", s.stopAtTarget)
             .put("guardMs", s.guardMs).put("fontScale", s.fontScale.toDouble())
             .put("milestone", s.milestone).put("dailyGoal", s.dailyGoal)
@@ -463,6 +465,23 @@ class Repo(ctx: Context) {
         val o = JSONObject()
         h.forEach { (k, v) -> if (v > 0) o.put(k, v) }
         p.edit().putString("history", o.toString()).apply()
+    }
+
+    fun loadLaps(): Map<String, Map<String, Int>> {
+        val s = p.getString("laps", null) ?: return emptyMap()
+        return runCatching {
+            val o = JSONObject(s)
+            o.keys().asSequence().associateWith { d ->
+                val m = o.getJSONObject(d)
+                m.keys().asSequence().associateWith { m.optInt(it, 0) }.filterValues { it > 0 }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    fun saveLaps(l: Map<String, Map<String, Int>>) {
+        val o = JSONObject()
+        l.forEach { (d, m) -> if (m.isNotEmpty()) o.put(d, JSONObject().apply { m.forEach { (k, v) -> put(k, v) } }) }
+        p.edit().putString("laps", o.toString()).apply()
     }
 
     fun loadVirds(): List<Vird> {
@@ -505,6 +524,13 @@ class Repo(ctx: Context) {
         h[k] = (h[k] ?: 0) + 1
         saveHistory(h)
         total = total + 1
+        if (nz.count % nz.target == 0) {
+            val l = loadLaps().toMutableMap()
+            val m = (l[k] ?: emptyMap()).toMutableMap()
+            m[nz.okunus] = (m[nz.okunus] ?: 0) + 1
+            l[k] = m
+            saveLaps(l)
+        }
         val st = streakOf(h)
         if (st > bestStreak) bestStreak = st
         return nz
@@ -517,6 +543,7 @@ class Repo(ctx: Context) {
         .put("settings", p.getString("settings", "{}"))
         .put("history", p.getString("history", "{}"))
         .put("virds", p.getString("virds", null) ?: virdsTo(VARSAYILAN_VIRDLER).toString())
+        .put("laps", p.getString("laps", "{}"))
         .toString(2)
 
     fun importJson(text: String): Boolean = runCatching {
@@ -534,6 +561,7 @@ class Repo(ctx: Context) {
             .putInt("bestStreak", o.optInt("bestStreak", 0))
             .putString("settings", o.optString("settings", "{}"))
             .putString("history", o.optString("history", "{}"))
+            .putString("laps", o.optString("laps", "{}"))
             .putString("virds", virdsTo(virds.ifEmpty { VARSAYILAN_VIRDLER }).toString())
             .remove("session")
             .apply()
