@@ -1,0 +1,38 @@
+name: APK derle
+
+on:
+  push:
+    branches: [zikirmatik]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Derle
+        run: chmod +x gradlew && ./gradlew assembleRelease
+      - name: APK'yi adlandir
+        run: cp app/build/outputs/apk/release/app-release.apk Zikirmatik.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zikirmatik-APK
+          path: Zikirmatik.apk
+      - name: Indirme sayfasina koy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="zikirmatik-v1.0-${{ github.run_number }}"
+          gh release create "$TAG" Zikirmatik.apk \
+            --target "${{ github.sha }}" \
+            --title "Zikirmatik ${{ github.run_number }}" \
+            --notes "Telefona indir ve kur: Zikirmatik.apk" \
+            --latest=false
