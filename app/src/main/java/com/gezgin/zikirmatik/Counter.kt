@@ -364,6 +364,11 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     }
 }
 
+// Kehribar yansıma renkleri: saf beyaz değil, sıcak krem (beyaz yansıma "sırıtmasın")
+private val WARM_SHEEN = Color(0xFFFFE7AE)
+private val WARM_HALO = Color(0xFFFFE9BE)
+private val WARM_SPEC = Color(0xFFFFF1D2)
+
 /** Tespih tanesi malzemesi. */
 class BeadMat(
     val name: String,
@@ -375,7 +380,7 @@ class BeadMat(
 
 val BEADS = listOf(
     // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari
-    BeadMat("Kehribar", Color(0xFFD49A2E), Color(0xFFF3C766), Color(0xFF8A5810), Color(0xFFF6D488), Color(0xFFB4761C), 0.95f, true),
+    BeadMat("Kehribar", Color(0xFFD3922A), Color(0xFFE6AA45), Color(0xFF955A10), Color(0xFFE8B04C), Color(0xFFA0702A), 0.85f, true),
     BeadMat("Oltu", Color(0xFF1C1915), Color(0xFF524940), Color(0xFF040303), Color(0xFF332C25), Color(0xFF0A0908), 1f, true),
     BeadMat("Sedef", Color(0xFFE6DED3), Color(0xFFFFFFFF), Color(0xFFA0928A), Color(0xFFF7E3EE), Color(0xFFD9E5F3), 0.8f, false),
     BeadMat("Kristal", Color(0x66DCE6FF), Color(0xEEFFFFFF), Color(0xCC5E7AB4), Color(0x88FFFFFF), Color(0x55A9BDF0), 1f, false),
@@ -400,9 +405,10 @@ fun amberAt(t: Float): AmberTone {
     val x = t.coerceIn(0f, 1f)
     return AmberTone(
         // Kullanıcının seçtiği "altın sarısı" kehribar: açık altından koyu altın-bal tonuna
-        light = lerp(Color(0xFFFFF3C4), Color(0xFFF4C55A), x),
-        base = lerp(Color(0xFFF2CD5C), Color(0xFFC98A1C), x),
-        edge = lerp(Color(0xFFC28F22), Color(0xFF7A4A0A), x),
+        // Kullanıcının tespihine göre: hardal-okra kehribar, sayı arttıkça koyulaşır
+        light = lerp(Color(0xFFEDB451), Color(0xFFD3933A), x),
+        base = lerp(Color(0xFFDDA03A), Color(0xFFB9781E), x),
+        edge = lerp(Color(0xFFA2681A), Color(0xFF74420C), x),
     )
 }
 
@@ -466,15 +472,16 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     val r1 = r * (0.35f + 0.2f * h2)
     val r2 = r * (0.30f + 0.2f * h1)
     drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f), Color.Transparent), center = m1, radius = r1), r1, m1)
-    drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.45f), Color.Transparent), center = m2, radius = r2), r2, m2)
+    drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.28f), Color.Transparent), center = m2, radius = r2), r2, m2)
     drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f), center = q, radius = r), r, q)
+    // Gerçek kehribardaki gibi: geniş beyaz parlama yok; küçük, sıcak tonlu tek bir ışık noktası
     val bo = Offset(q.x + r * 0.12f, q.y + r * 0.52f)
-    drawCircle(Brush.radialGradient(listOf(m.light.copy(alpha = 0.28f), Color.Transparent), center = bo, radius = r * 0.45f), r * 0.45f, bo)
+    drawCircle(Brush.radialGradient(listOf(m.light.copy(alpha = 0.10f), Color.Transparent), center = bo, radius = r * 0.45f), r * 0.45f, bo)
     val so = Offset(q.x - r * 0.28f, q.y - r * 0.34f)
-    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.24f), Color.Transparent), center = so, radius = r * 0.55f), r * 0.55f, so)
-    val spt = Offset(q.x - r * 0.30f, q.y - r * 0.38f)
-    drawCircle(Color.White.copy(alpha = 0.35f * m.spec), r * 0.17f, spt)
-    drawCircle(Color.White.copy(alpha = 0.95f * m.spec), r * 0.085f, spt)
+    drawCircle(Brush.radialGradient(listOf(WARM_SHEEN.copy(alpha = 0.10f), Color.Transparent), center = so, radius = r * 0.55f), r * 0.55f, so)
+    val spt = Offset(q.x - r * 0.18f, q.y - r * 0.22f)
+    drawCircle(Brush.radialGradient(listOf(WARM_HALO.copy(alpha = 0.30f * m.spec), Color.Transparent), center = spt, radius = r * 0.12f), r * 0.12f, spt)
+    drawCircle(WARM_SPEC.copy(alpha = 0.85f * m.spec), r * 0.065f, spt)
 }
 
 private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
@@ -519,12 +526,12 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     // doğal bulutlanma (sıkma kehribar dokusu)
     for ((ox, oy, rr, light) in AMBER_CLOUDS) {
         val q = Offset(c.x + ox * rDisc, c.y + oy * rDisc)
-        val col = if (light) am.light.copy(alpha = 0.30f) else am.edge.copy(alpha = 0.22f)
+        val col = if (light) am.light.copy(alpha = 0.22f) else Color(0xFFA0702A).copy(alpha = 0.16f)
         drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), center = q, radius = rr * rDisc), rr * rDisc, q)
     }
     // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
     drawCircle(
-        Brush.radialGradient(listOf(am.light.copy(alpha = 0.35f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
+        Brush.radialGradient(listOf(am.light.copy(alpha = 0.15f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
         radius = rDisc, center = c,
     )
     drawCircle(Brush.radialGradient(0.72f to Color.Transparent, 1f to am.edge.copy(alpha = 0.65f), center = c, radius = rDisc), rDisc, c)
@@ -559,12 +566,12 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     // Gerçek kehribar yansıması (tanelerle aynı ışık): alttan sıcak yansıma, ipeksi parlaklık, keskin ışık noktası
     val pr = 1f - 0.4f * press
     val bounce = Offset(c.x + rDisc * 0.12f, c.y + rDisc * 0.56f)
-    drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.30f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
+    drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.10f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
     val sheen = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f)
-    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.26f * pr), Color.Transparent), center = sheen, radius = rDisc * 0.52f), rDisc * 0.52f, sheen)
-    val spot = Offset(c.x - rDisc * 0.40f, c.y - rDisc * 0.48f)
-    drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.45f * pr), Color.Transparent), center = spot, radius = rDisc * 0.13f), rDisc * 0.13f, spot)
-    drawCircle(Color.White.copy(alpha = 0.95f * pr), rDisc * 0.045f, spot)
+    drawCircle(Brush.radialGradient(listOf(WARM_SHEEN.copy(alpha = 0.10f * pr), Color.Transparent), center = sheen, radius = rDisc * 0.52f), rDisc * 0.52f, sheen)
+    val spot = Offset(c.x - rDisc * 0.42f, c.y - rDisc * 0.50f)
+    drawCircle(Brush.radialGradient(listOf(WARM_HALO.copy(alpha = 0.30f * pr), Color.Transparent), center = spot, radius = rDisc * 0.12f), rDisc * 0.12f, spot)
+    drawCircle(WARM_SPEC.copy(alpha = 0.85f * pr), rDisc * 0.035f, spot)
 
     // ── Tespih ipi ──
     drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
