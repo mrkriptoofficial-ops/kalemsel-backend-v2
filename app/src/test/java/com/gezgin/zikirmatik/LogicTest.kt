@@ -39,8 +39,10 @@ class LogicTest {
     @Test fun esma_arapca_bos_degil() = assertTrue(LIB_ESMA.all { it.arapca.isNotBlank() && it.anlam.isNotBlank() })
     @Test fun esma_anlamlari_tekil() = assertEquals(LIB_ESMA.size, LIB_ESMA.map { it.anlam }.toSet().size)
     @Test fun kutuphane_anahtarlari_tekil() {
-        listOf(LIB_GUNLUK, LIB_SALAVAT, LIB_ESMA).forEach { l -> assertEquals(l.size, l.map { it.okunus }.toSet().size) }
+        listOf(LIB_SUNNET, LIB_GUNLUK, LIB_SALAVAT, LIB_ESMA).forEach { l -> assertEquals(l.size, l.map { it.okunus }.toSet().size) }
     }
     @Test fun varsayilan_kimlikler_tekil() = assertEquals(VARSAYILAN.size, VARSAYILAN.map { it.id }.toSet().size)
+    @Test fun sunnet_her_maddede_kaynak_var() = assertTrue(LIB_SUNNET.all { it.fazilet.contains("(") && it.fazilet.contains(")") })
+    @Test fun sunnet_zikir_adlari_tekil() = assertEquals(LIB_SUNNET.size, LIB_SUNNET.map { it.zikirOkunus }.toSet().size)
     @Test fun namaz_tesbihati_100_eder() = assertEquals(100, VARSAYILAN_VIRDLER.first().total)
 }

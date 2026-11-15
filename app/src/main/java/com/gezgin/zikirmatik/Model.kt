@@ -26,6 +26,7 @@ data class Session(val virdId: Long, val step: Int, val count: Int)
 
 data class Settings(
     val theme: Int = 0,            // 0 Safir, 1 Gece (OLED siyah), 2 Fildişi
+    val bead: Int = 0,             // 0 Kehribar, 1 Oltu, 2 Sedef, 3 Kristal
     val haptic: Int = 2,           // 0 kapalı, 1 hafif, 2 normal, 3 güçlü
     val sound: Boolean = false,
     val volumeKeys: Boolean = true,
@@ -79,6 +80,151 @@ val VARSAYILAN_VIRDLER = listOf(
             Step("اَسْتَغْفِرُ اللّٰهَ", "Estağfirullâh", "Allah'tan bağışlanma dilerim", 100),
             Step("اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Salavât", "Allah'ım, Efendimiz Muhammed'e salât eyle", 100),
         ),
+    ),
+)
+
+/** Sünnet sabah-akşam zikirleri (sonradan eklenen hazır set). */
+val SUNNET_VIRD = Vird(
+    103, "Sünnet Sabah-Akşam Zikirleri",
+    listOf(
+        Step(SEYYID_AR, "Seyyidü'l-İstiğfâr", "İstiğfarın efendisi", 1),
+        Step(BISMILLAH_AR, "Bismillâhillezî", "İsmi anıldığında hiçbir şeyin zarar veremediği Allah'ın adıyla", 3),
+        Step("رَضِيتُ بِاللّٰهِ رَبًّا وَبِالْاِسْلَامِ دِينًا وَبِمُحَمَّدٍ نَبِيًّا", "Radîtü Billâhi", "Rab olarak Allah'tan, din olarak İslâm'dan, peygamber olarak Muhammed'den razıyım", 3),
+        Step("سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ", "Sübhânallâhi ve bihamdihî", "Allah'ı hamdiyle tesbih ederim", 100),
+        Step(TEVHID_AR, "Kelime-i Tevhîd", "Allah'tan başka ilah yoktur; tektir, ortağı yoktur.", 10),
+        Step("اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Salavât", "Allah'ım, Efendimiz Muhammed'e salât eyle", 10),
+    ),
+)
+
+// ───────────── Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler ─────────────
+// Yalnızca muteber hadis kaynaklarında yer alan rivayetler; kaynak her maddede belirtilir.
+private const val SEYYID_AR = "اَللّٰهُمَّ اَنْتَ رَبِّي لَا اِلٰهَ اِلَّا اَنْتَ خَلَقْتَنِي وَاَنَا عَبْدُكَ وَاَنَا عَلٰى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ اَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ اَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ وَاَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَاِنَّهُ لَا يَغْفِرُ الذُّنُوبَ اِلَّا اَنْتَ"
+private const val IBRAHIMIYYE_AR = "اَللّٰهُمَّ صَلِّ عَلٰى مُحَمَّدٍ وَعَلٰى اٰلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلٰى اِبْرَاهِيمَ وَعَلٰى اٰلِ اِبْرَاهِيمَ اِنَّكَ حَمِيدٌ مَجِيدٌ اَللّٰهُمَّ بَارِكْ عَلٰى مُحَمَّدٍ وَعَلٰى اٰلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلٰى اِبْرَاهِيمَ وَعَلٰى اٰلِ اِبْرَاهِيمَ اِنَّكَ حَمِيدٌ مَجِيدٌ"
+private const val BISMILLAH_AR = "بِسْمِ اللّٰهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْاَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ"
+
+val LIB_SUNNET = listOf(
+    LibItem(
+        TEVHID_AR, TEVHID_TR, "Allah'tan başka ilah yoktur; tektir, ortağı yoktur. Mülk ve hamd O'nundur, O her şeye kadirdir.",
+        "Günde yüz defa söyleyene on köle azat etmiş gibi sevap verilir, yüz iyilik yazılır, yüz hatası silinir ve o gün akşama kadar şeytandan korunur. (Buhârî, Müslim)",
+        100, "Kelime-i Tevhîd",
+    ),
+    LibItem(
+        "سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ", "Sübhânallâhi ve bihamdihî", "Allah'ı hamdiyle tesbih ederim",
+        "Günde yüz defa söyleyenin hataları deniz köpüğü kadar olsa bile silinir. (Buhârî, Müslim)", 100,
+    ),
+    LibItem(
+        "سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ سُبْحَانَ اللّٰهِ الْعَظِيمِ", "Sübhânallâhi ve bihamdihî, sübhânallâhi'l-azîm",
+        "Allah'ı hamdiyle tesbih ederim, yüce Allah'ı tesbih ederim",
+        "Dile hafif, mîzanda ağır, Rahmân'a sevimli iki sözdür. (Buhârî, Müslim)", 100, "Sübhânallâhi ve bihamdihî, sübhânallâhi'l-azîm",
+    ),
+    LibItem(
+        "سُبْحَانَ اللّٰهِ وَالْحَمْدُ لِلّٰهِ وَلَا اِلٰهَ اِلَّا اللّٰهُ وَاللّٰهُ اَكْبَرُ",
+        "Sübhânallâhi ve'l-hamdü lillâhi ve lâ ilâhe illallâhu vallâhu ekber",
+        "Allah noksanlıklardan münezzehtir, hamd Allah'adır, Allah'tan başka ilah yoktur, Allah en büyüktür",
+        "Allah'a en sevimli sözler bu dördüdür; hangisiyle başladığının bir zararı yoktur. (Müslim)", 100, "Bâkıyât-ı Sâlihât",
+    ),
+    LibItem(
+        "لَا اِلٰهَ اِلَّا اللّٰهُ", "Lâ ilâhe illallâh", "Allah'tan başka ilah yoktur",
+        "Zikrin en faziletlisi Lâ ilâhe illallâh'tır. (Tirmizî, İbn Mâce)", 100,
+    ),
+    LibItem(
+        "سُبْحَانَ اللّٰهِ", "Sübhânallâh", "Allah her türlü noksanlıktan münezzehtir",
+        "Günde yüz defa tesbih edene bin iyilik yazılır ya da bin hatası silinir. (Müslim)", 100,
+    ),
+    LibItem(
+        "اَلْحَمْدُ لِلّٰهِ", "Elhamdülillâh", "Hamd yalnızca Allah'adır",
+        "Elhamdülillâh mîzanı doldurur. (Müslim) Duanın en faziletlisi Elhamdülillâh'tır. (Tirmizî)", 33,
+    ),
+    LibItem(
+        "اَللّٰهُ اَكْبَرُ", "Allâhu Ekber", "Allah en büyüktür",
+        "Namazdan sonra 33 tesbih, 33 hamd, 33 tekbir söyleyip yüzü kelime-i tevhid ile tamamlayanın hataları deniz köpüğü kadar olsa da bağışlanır. (Müslim)", 33,
+    ),
+    LibItem(
+        "لَا حَوْلَ وَلَا قُوَّةَ اِلَّا بِاللّٰهِ", "Lâ havle ve lâ kuvvete illâ billâh", "Güç ve kuvvet ancak Allah'ın yardımıyladır",
+        "Cennet hazinelerinden bir hazinedir. (Buhârî, Müslim)", 100,
+    ),
+    LibItem(
+        "اَسْتَغْفِرُ اللّٰهَ وَاَتُوبُ اِلَيْهِ", "Estağfirullâhe ve etûbü ileyh", "Allah'tan bağışlanma diler, O'na tövbe ederim",
+        "Peygamberimiz günde yetmiş defadan fazla istiğfar ve tövbe ettiğini bildirmiştir. (Buhârî) Müslim'in rivayetinde yüz defa geçer.", 100,
+    ),
+    LibItem(
+        SEYYID_AR,
+        "Allâhümme ente rabbî lâ ilâhe illâ ente halaktenî ve ene abdük, ve ene alâ ahdike ve va'dike mestata'tü, eûzü bike min şerri mâ sana'tü, ebûü leke bi ni'metike aleyye ve ebûü bi zenbî, fağfir lî fe innehû lâ yağfiru'z-zünûbe illâ ente",
+        "Allah'ım! Sen benim Rabbimsin, Senden başka ilah yoktur. Beni Sen yarattın, ben Senin kulunum; gücüm yettiğince Sana verdiğim söz üzereyim. Yaptıklarımın şerrinden Sana sığınırım. Bana verdiğin nimetleri ve günahımı itiraf ederim; beni bağışla, çünkü günahları Senden başkası bağışlayamaz.",
+        "İstiğfarın efendisidir. Gündüz inanarak söyleyip akşam olmadan vefat eden ya da gece söyleyip sabah olmadan vefat eden cennetliktir. (Buhârî)", 1, "Seyyidü'l-İstiğfâr",
+    ),
+    LibItem(
+        "اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Allâhümme salli alâ seyyidinâ Muhammed", "Allah'ım, Efendimiz Muhammed'e salât eyle",
+        "Bana bir salavât getirene Allah on rahmet eder. (Müslim)", 100, "Salavât",
+    ),
+    LibItem(
+        IBRAHIMIYYE_AR,
+        "Allâhümme salli alâ Muhammedin ve alâ âli Muhammed, kemâ salleyte alâ İbrâhîme ve alâ âli İbrâhîm, inneke hamîdün mecîd. Allâhümme bârik alâ Muhammedin ve alâ âli Muhammed, kemâ bârekte alâ İbrâhîme ve alâ âli İbrâhîm, inneke hamîdün mecîd",
+        "Allah'ım, İbrâhim'e ve âline salât ve bereket verdiğin gibi Muhammed'e ve âline de salât ve bereket ver. Şüphesiz Sen övülmeye layık ve şanı yücesin.",
+        "Peygamberimizin, kendisine nasıl salavât getirileceğini soran ashabına bizzat öğrettiği salavâttır. (Buhârî, Müslim)", 10, "Salavât-ı İbrâhîmiyye",
+    ),
+    LibItem(
+        "سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ عَدَدَ خَلْقِهِ وَرِضَا نَفْسِهِ وَزِنَةَ عَرْشِهِ وَمِدَادَ كَلِمَاتِهِ",
+        "Sübhânallâhi ve bihamdihî adede halkıhî ve rıdâ nefsihî ve zinete arşihî ve midâde kelimâtih",
+        "Allah'ı, yarattıkları sayısınca, kendi rızası kadar, arşının ağırlığınca ve kelimelerinin mürekkebi miktarınca hamdiyle tesbih ederim",
+        "Üçer defa söylenen bu dört söz, sabahtan beri yapılan zikirlerle tartılsa onlardan ağır gelir. (Müslim)", 3, "Cüveyriye Tesbihi",
+    ),
+    LibItem(
+        BISMILLAH_AR,
+        "Bismillâhillezî lâ yedurru mea'smihî şey'ün fi'l-ardı ve lâ fi's-semâi ve hüve's-semîu'l-alîm",
+        "İsmi anıldığında yerde ve gökte hiçbir şeyin zarar veremediği Allah'ın adıyla. O her şeyi işiten ve bilendir.",
+        "Akşam üç defa söyleyene sabaha kadar, sabah üç defa söyleyene akşama kadar ansızın bir musibet isabet etmez. (Ebû Dâvûd, Tirmizî)", 3, "Bismillâhillezî",
+    ),
+    LibItem(
+        "رَضِيتُ بِاللّٰهِ رَبًّا وَبِالْاِسْلَامِ دِينًا وَبِمُحَمَّدٍ نَبِيًّا",
+        "Radîtü billâhi rabben ve bi'l-islâmi dînen ve bi Muhammedin nebiyyen",
+        "Rab olarak Allah'tan, din olarak İslâm'dan, peygamber olarak Muhammed'den razıyım",
+        "Akşam ve sabah üçer defa söyleyeni kıyamet günü razı etmek Allah'ın üzerine bir haktır. (Tirmizî) Bunu söyleyene cennet vâcip olur. (Ebû Dâvûd)", 3, "Radîtü Billâhi",
+    ),
+    LibItem(
+        "لَا اِلٰهَ اِلَّا اَنْتَ سُبْحَانَكَ اِنِّي كُنْتُ مِنَ الظَّالِمِينَ",
+        "Lâ ilâhe illâ ente sübhâneke innî küntü mine'z-zâlimîn",
+        "Senden başka ilah yoktur, Seni tesbih ederim; ben zalimlerden oldum",
+        "Hz. Yûnus'un balığın karnındaki duasıdır (Enbiyâ, 21/87). Müslüman bir kişi bununla dua ettiğinde Allah duasını kabul eder. (Tirmizî)", 100, "Yûnus Duası",
+    ),
+    LibItem(
+        "حَسْبُنَا اللّٰهُ وَنِعْمَ الْوَكِيلُ", "Hasbünallâhu ve ni'me'l-vekîl", "Allah bize yeter, O ne güzel vekildir",
+        "Hz. İbrâhim ateşe atıldığında, Peygamberimiz de insanların kendilerine karşı toplandığı haber verildiğinde bunu söylemiştir. (Buhârî)", 33,
+    ),
+    LibItem(
+        "رَبَّنَا اٰتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْاٰخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ",
+        "Rabbenâ âtinâ fi'd-dünyâ haseneten ve fi'l-âhireti haseneten ve kınâ azâbe'n-nâr",
+        "Rabbimiz! Bize dünyada da iyilik ver, âhirette de iyilik ver ve bizi ateş azabından koru",
+        "Peygamberimizin en çok yaptığı duadır. (Buhârî, Müslim)", 7, "Rabbenâ Âtinâ",
+    ),
+    LibItem(
+        "يَا مُقَلِّبَ الْقُلُوبِ ثَبِّتْ قَلْبِي عَلٰى دِينِكَ", "Yâ Mukallibe'l-kulûb, sebbit kalbî alâ dînik",
+        "Ey kalpleri halden hale çeviren Allah'ım! Kalbimi dinin üzere sabit kıl",
+        "Hz. Ümmü Seleme, Peygamberimizin en çok yaptığı duanın bu olduğunu bildirmiştir. (Tirmizî)", 7, "Yâ Mukallibe'l-Kulûb",
+    ),
+    LibItem(
+        "اَللّٰهُمَّ اِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي", "Allâhümme inneke afüvvün tühibbü'l-afve fa'fu annî",
+        "Allah'ım! Sen affedicisin, affetmeyi seversin; beni affet",
+        "Hz. Âişe Kadir gecesinde ne diyeceğini sorduğunda Peygamberimiz bu duayı öğretmiştir. (Tirmizî, İbn Mâce)", 33, "Kadir Gecesi Duası",
+    ),
+    LibItem(
+        "يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ اَسْتَغِيثُ", "Yâ Hayyu yâ Kayyûmu bi rahmetike esteğîs",
+        "Ey diri ve her şeyi ayakta tutan Allah'ım! Rahmetinle yardım dilerim",
+        "Peygamberimiz bir iş kendisini sıkıntıya soktuğunda böyle dua ederdi. (Tirmizî)", 33, "Yâ Hayyu Yâ Kayyûm",
+    ),
+    LibItem(
+        "يَا ذَا الْجَلَالِ وَالْاِكْرَامِ", "Yâ Ze'l-Celâli ve'l-İkrâm", "Ey celâl ve ikram sahibi Allah'ım",
+        "\"Yâ Ze'l-Celâli ve'l-İkrâm\" duasına devam edin. (Tirmizî)", 33,
+    ),
+    LibItem(
+        "اَللّٰهُمَّ اَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْاِكْرَامِ",
+        "Allâhümme ente's-selâmu ve minke's-selâm, tebârekte yâ ze'l-celâli ve'l-ikrâm",
+        "Allah'ım! Sen selâmsın, selâmet Sendendir. Ey celâl ve ikram sahibi, Sen yücesin",
+        "Peygamberimiz namazda selam verdikten sonra üç defa istiğfar eder, ardından bunu söylerdi. (Müslim)", 1, "Namaz Sonrası Selâm Duası",
+    ),
+    LibItem(
+        "سُبْحَانَ الْمَلِكِ الْقُدُّوسِ", "Sübhâne'l-meliki'l-kuddûs", "Mülkün sahibi, her türlü eksiklikten uzak Allah'ı tesbih ederim",
+        "Peygamberimiz vitir namazından selam verince üç defa söyler, üçüncüde sesini yükseltirdi. (Ebû Dâvûd, Nesâî)", 3,
     ),
 )
 
@@ -277,6 +423,7 @@ class Repo(ctx: Context) {
             val o = JSONObject(s)
             Settings(
                 theme = o.optInt("theme", 0).coerceIn(0, 2),
+                bead = o.optInt("bead", 0).coerceIn(0, 3),
                 haptic = o.optInt("haptic", 2).coerceIn(0, 3),
                 sound = o.optBoolean("sound", false),
                 volumeKeys = o.optBoolean("volumeKeys", true),
@@ -295,7 +442,7 @@ class Repo(ctx: Context) {
 
     fun saveSettings(s: Settings) {
         val o = JSONObject()
-            .put("theme", s.theme).put("haptic", s.haptic).put("sound", s.sound)
+            .put("theme", s.theme).put("bead", s.bead).put("haptic", s.haptic).put("sound", s.sound)
             .put("volumeKeys", s.volumeKeys).put("stopAtTarget", s.stopAtTarget)
             .put("guardMs", s.guardMs).put("fontScale", s.fontScale.toDouble())
             .put("milestone", s.milestone).put("dailyGoal", s.dailyGoal)
@@ -319,8 +466,13 @@ class Repo(ctx: Context) {
     }
 
     fun loadVirds(): List<Vird> {
-        val s = p.getString("virds", null) ?: return VARSAYILAN_VIRDLER
-        return runCatching { virdsFrom(JSONArray(s)) }.getOrDefault(VARSAYILAN_VIRDLER)
+        val list = p.getString("virds", null)?.let { s -> runCatching { virdsFrom(JSONArray(s)) }.getOrNull() } ?: VARSAYILAN_VIRDLER
+        // Yeni hazır seti bir kez ekle (kullanıcı silerse tekrar eklenmez)
+        if (!p.getBoolean("v103", false)) {
+            p.edit().putBoolean("v103", true).apply()
+            if (list.none { it.id == SUNNET_VIRD.id }) return (list + SUNNET_VIRD).also { saveVirds(it) }
+        }
+        return list
     }
 
     fun saveVirds(v: List<Vird>) = p.edit().putString("virds", virdsTo(v).toString()).apply()

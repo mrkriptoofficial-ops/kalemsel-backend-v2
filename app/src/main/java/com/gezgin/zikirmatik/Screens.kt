@@ -116,7 +116,7 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
 fun LibraryScreen(st: AppState, back: () -> Unit) {
     val p = LocalPal.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Günlük", "Salavât", "Esmâ-ül Hüsnâ")
+    val tabs = listOf("Sünnet", "Günlük", "Salavât", "Esmâ")
     ScreenFrame("Kütüphane", back) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).glass(p, RoundedCornerShape(50)).padding(4.dp),
@@ -133,13 +133,20 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
                 }
             }
         }
-        val items = when (tab) { 0 -> LIB_GUNLUK; 1 -> LIB_SALAVAT; else -> LIB_ESMA }
+        val items = when (tab) { 0 -> LIB_SUNNET; 1 -> LIB_GUNLUK; 2 -> LIB_SALAVAT; else -> LIB_ESMA }
         AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { _ ->
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                if (tab == 0) item {
+                    Text(
+                        "Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler. Her birinin faziletini bildiren hadisin kaynağı yanında yazılıdır.",
+                        style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center, fontSize = 13.sp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
                 items(items, key = { it.okunus }) { item ->
                     val have = st.hasLib(item)
                     Row(
@@ -410,6 +417,12 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                     PALETLER.forEachIndexed { i, pal -> ThemeSwatch(pal, s.theme == i, Modifier.weight(1f)) { st.update { it.copy(theme = i) } } }
                 }
                 Spacer(Modifier.height(14.dp))
+                Text("Tespih", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BEADS.forEachIndexed { i, b -> BeadSwatch(b, s.bead == i, Modifier.weight(1f)) { st.update { it.copy(bead = i) } } }
+                }
+                Spacer(Modifier.height(14.dp))
                 Text("Yazı boyutu", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -479,7 +492,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle("Hakkında")
                 Text(
-                    "Zikirmatik 2.0\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).",
+                    "Zikirmatik 2.1\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).",
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
@@ -490,6 +503,28 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
 }
 
 private fun abs(f: Float) = kotlin.math.abs(f)
+
+@Composable
+private fun BeadSwatch(m: BeadMat, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val p = LocalPal.current
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier.clip(shape)
+            .then(if (selected) Modifier.border(2.dp, p.gold, shape) else Modifier.glass(p, shape))
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = "${m.name} tespih" }
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Canvas(Modifier.size(30.dp)) {
+            val r = size.minDimension / 2
+            drawCircle(Brush.radialGradient(0f to m.light, 0.55f to m.base, 1f to m.edge, center = Offset(r * 0.7f, r * 0.64f), radius = r * 1.45f))
+            drawCircle(Color.White.copy(alpha = 0.9f * m.spec), r * 0.09f, Offset(r * 0.7f, r * 0.62f))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(m.name, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = p.text), maxLines = 1)
+    }
+}
 
 @Composable
 private fun ThemeSwatch(pal: Pal, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {

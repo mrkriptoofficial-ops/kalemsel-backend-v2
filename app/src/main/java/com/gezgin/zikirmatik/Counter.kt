@@ -32,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
@@ -114,7 +115,7 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Dome(d, pressed, st.pulseKey, st.celebrateKey, st.shakeKey, Modifier.fillMaxSize().padding(vertical = 8.dp))
+            Dome(d, st.settings.bead, pressed, st.pulseKey, st.celebrateKey, st.shakeKey, Modifier.fillMaxSize().padding(vertical = 4.dp))
         }
 
         ControlRow(st, d, sheet)
@@ -169,11 +170,11 @@ private fun ZikirCard(st: AppState, d: Disp) {
                                 z.arapca,
                                 style = TextStyle(
                                     fontFamily = Arabic,
-                                    fontSize = when { z.arapca.length > 70 -> 20.sp; z.arapca.length > 40 -> 24.sp; else -> 31.sp },
-                                    lineHeight = when { z.arapca.length > 70 -> 35.sp; z.arapca.length > 40 -> 42.sp; else -> 54.sp },
+                                    fontSize = when { z.arapca.length > 150 -> 16.sp; z.arapca.length > 70 -> 20.sp; z.arapca.length > 40 -> 24.sp; else -> 31.sp },
+                                    lineHeight = when { z.arapca.length > 150 -> 29.sp; z.arapca.length > 70 -> 35.sp; z.arapca.length > 40 -> 42.sp; else -> 54.sp },
                                     color = p.text, textAlign = TextAlign.Center, textDirection = TextDirection.Rtl,
                                 ),
-                                maxLines = 5,
+                                maxLines = 7,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(6.dp))
@@ -255,7 +256,7 @@ private fun VirdHeader(st: AppState, d: Disp) {
 
 // ───────────── Kristal kubbe ─────────────
 @Composable
-private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, shakeKey: Int, modifier: Modifier) {
+private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateKey: Int, shakeKey: Int, modifier: Modifier) {
     val p = LocalPal.current
     val shown = d.shown
     val reduce = rememberReducedMotion()
@@ -266,11 +267,11 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
         if (t < prog.value - 0.4f) prog.snapTo(0f)
         if (reduce) prog.snapTo(t) else prog.animateTo(t, spring(stiffness = Spring.StiffnessMediumLow))
     }
-    val beadStep = 360f / 33f
-    val rot = remember { Animatable(0f) }
+    // Tespih tanelerinin konumu (tane biriminde); her dokunuşta bir tane kayar
+    val rot = remember { Animatable(d.count.toFloat()) }
     LaunchedEffect(d.count, d.key) {
-        val t = d.count * beadStep
-        if (reduce || abs(t - rot.value) > 400f) rot.snapTo(t) else rot.animateTo(t, spring(dampingRatio = 0.62f, stiffness = 520f))
+        val t = d.count.toFloat()
+        if (reduce || abs(t - rot.value) > 33f) rot.snapTo(t) else rot.animateTo(t, spring(dampingRatio = 0.62f, stiffness = 520f))
     }
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(pulseKey) {
@@ -287,10 +288,11 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
     val press by animateFloatAsState(if (pressed) 1f else 0f, spring(stiffness = 900f), label = "bas")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val side = minOf(maxWidth, maxHeight, 360.dp)
+        val side = minOf(maxWidth, maxHeight, 400.dp)
         val dens = LocalDensity.current
-        val numSize = with(dens) { (side * (if (shown >= 1000) 0.21f else 0.285f)).toSp() }
-        val small = with(dens) { (side * 0.036f).toSp() }
+        val numSize = with(dens) { (side * (if (shown >= 1000) 0.17f else 0.235f)).toSp() }
+        val lift = side * (24f / 380f)
+        val small = with(dens) { (side * 0.032f).toSp() }
         val px = dens.density
         Box(
             Modifier
@@ -302,9 +304,9 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], prog.value, rot.value, pulse.value, burst.value, press, reduce) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
                     targetState = shown,
                     transitionSpec = {
@@ -336,14 +338,14 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
             Text(
                 "TAMAMLANDI",
                 style = labelStyle(p.goldText).copy(fontSize = small, letterSpacing = 3.sp),
-                modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.235f)).padding(start = 3.dp)
+                modifier = Modifier.align(Alignment.Center).offset(y = -(side * 0.19f) - lift).padding(start = 3.dp)
                     .graphicsLayer { val b = burst.value; alpha = if (b < 1f) sin(PI.toFloat() * b).coerceIn(0f, 1f) else 0f },
             )
             if (d.laps > 0) {
                 Text(
                     "${d.laps}. TUR",
                     style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
-                    modifier = Modifier.align(Alignment.Center).offset(y = side * 0.235f)
+                    modifier = Modifier.align(Alignment.Center).offset(y = side * 0.17f - lift)
                         .clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
                 )
             }
@@ -351,84 +353,76 @@ private fun Dome(d: Disp, pressed: Boolean, pulseKey: Int, celebrateKey: Int, sh
     }
 }
 
-private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
-    val c = center
-    val k = size.minDimension / 320.dp.toPx()
-    val rOuter = size.minDimension / 2 - 10.dp.toPx() * k
-    val beadR = 5.8.dp.toPx() * k
-    val rBeads = rOuter - beadR - 2.dp.toPx() * k
-    val rDisc = rBeads - beadR - 11.dp.toPx() * k
-    val rArc = rDisc - 14.dp.toPx() * k
-    val stroke = 3.6.dp.toPx() * k
+/** Tespih tanesi malzemesi. */
+class BeadMat(
+    val name: String,
+    val base: Color, val light: Color, val edge: Color,
+    val mottleLight: Color, val mottleDark: Color,
+    val spec: Float,
+    val silver: Boolean,
+)
 
-    fun polar(r: Float, deg: Float): Offset {
+val BEADS = listOf(
+    // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari
+    BeadMat("Kehribar", Color(0xFFD49A2E), Color(0xFFF3C766), Color(0xFF8A5810), Color(0xFFF6D488), Color(0xFFB4761C), 0.95f, true),
+    BeadMat("Oltu", Color(0xFF1C1915), Color(0xFF524940), Color(0xFF040303), Color(0xFF332C25), Color(0xFF0A0908), 1f, true),
+    BeadMat("Sedef", Color(0xFFE6DED3), Color(0xFFFFFFFF), Color(0xFFA0928A), Color(0xFFF7E3EE), Color(0xFFD9E5F3), 0.8f, false),
+    BeadMat("Kristal", Color(0x66DCE6FF), Color(0xEEFFFFFF), Color(0xCC5E7AB4), Color(0x88FFFFFF), Color(0x55A9BDF0), 1f, false),
+)
+
+/** Çektikçe değişen renk: gece mavisi → menekşe → gül → kehribar → altın. */
+private fun phase(p: Pal, t: Float): Color {
+    val stops = if (p.dark) listOf(Color(0xFF7FA7F0), Color(0xFFA68CF0), Color(0xFFEA96BE), Color(0xFFF2AE62), Color(0xFFF6DDA0))
+    else listOf(Color(0xFF4E74C4), Color(0xFF7A5CC6), Color(0xFFC2648E), Color(0xFFC9822F), Color(0xFFB8913F))
+    val x = t.coerceIn(0f, 1f) * (stops.size - 1)
+    val i = x.toInt().coerceAtMost(stops.size - 2)
+    return lerp(stops[i], stops[i + 1], x - i)
+}
+
+private fun metalBrush(silver: Boolean, a: Offset, b: Offset): Brush = Brush.linearGradient(
+    if (silver) listOf(Color(0xFFF5F5F7), Color(0xFF9C9CA4), Color(0xFFE4E4E8), Color(0xFF5E5E66))
+    else listOf(Color(0xFFF7E4AA), Color(0xFFB88A3A), Color(0xFFEDCD82), Color(0xFF6E5018)),
+    start = a, end = b,
+)
+
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
+    val k = size.minDimension / 380.dp.toPx()
+    val c = Offset(center.x, center.y - 24.dp.toPx() * k)   // imame ve püskül için aşağıda yer aç
+    val rB = size.minDimension / 2 - 42.dp.toPx() * k        // tespih ipinin yarıçapı
+    val gapDeg = 30f                                         // imamenin durduğu boşluk (altta)
+    val seg = (360f - gapDeg) / 33f
+    val slot = (2f * PI.toFloat() * rB * seg / 360f)
+    val r = slot * 0.48f                                     // birbirine değen yuvarlak taneler
+    val rDisc = rB - r - 9.dp.toPx() * k
+    val rArc = rDisc - 13.dp.toPx() * k
+    val stroke = 3.4.dp.toPx() * k
+    val ph = phase(p, prog)
+
+    fun polar(rad: Float, deg: Float): Offset {
         val a = Math.toRadians(deg.toDouble())
-        return Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat())
+        return Offset(c.x + rad * cos(a).toFloat(), c.y + rad * sin(a).toFloat())
     }
 
-    // Arka hâle
+    // ── Hâle: rengi ilerlemeyle değişir ──
     drawCircle(
-        Brush.radialGradient(listOf(p.domeGlow.copy(alpha = if (p.dark) 0.30f else 0.22f), Color.Transparent), center = c, radius = rOuter * 1.18f),
-        radius = rOuter * 1.18f, center = c,
+        Brush.radialGradient(listOf(ph.copy(alpha = if (p.dark) 0.30f else 0.22f), Color.Transparent), center = c, radius = rB * 1.22f),
+        radius = rB * 1.22f, center = c,
     )
-    // Zemin gölgesi (kubbenin yüzdüğü hissi)
+
+    // ── Kristal kubbe ──
     val sh = Offset(c.x, c.y + rDisc * 0.10f)
     drawCircle(
         Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.45f else 0.14f), Color.Transparent), center = sh, radius = rDisc * 1.12f),
         radius = rDisc * 1.12f, center = sh,
     )
-
-    // Tespih ipi
-    drawCircle(p.gold.copy(alpha = 0.55f), rBeads, c, style = Stroke(0.9.dp.toPx() * k))
-
-    // 33 tespih tanesi (her dokunuşta bir tane kayar)
-    val stepDeg = 360f / 33f
-    // Tek fırça, her taneye kaydırılarak kullanılır (her karede 33 fırça oluşturmaz)
-    val beadBrush = Brush.radialGradient(
-        listOf(Color.White.copy(alpha = 0.95f), p.beadMid, p.beadEdge),
-        center = Offset(-beadR * 0.35f, -beadR * 0.40f),
-        radius = beadR * 1.35f,
-    )
-    val beadShadow = Color.Black.copy(alpha = if (p.dark) 0.35f else 0.12f)
-    for (i in 0 until 33) {
-        val ang = -90f + i * stepDeg + rot
-        var rel = ((ang + 90f) % 360f + 360f) % 360f
-        if (rel > 180f) rel -= 360f
-        val near = (1f - abs(rel) / stepDeg).coerceIn(0f, 1f)
-        val pos = polar(rBeads, ang)
-        drawCircle(beadShadow, beadR, Offset(pos.x, pos.y + beadR * 0.45f))
-        if (near > 0f) drawCircle(p.goldLight.copy(alpha = 0.45f * near), beadR * 2.3f, pos)
-        translate(pos.x, pos.y) { drawCircle(beadBrush, beadR, Offset.Zero) }
-        if (near > 0f) drawCircle(p.goldLight.copy(alpha = 0.55f * near), beadR, pos)
-        drawCircle(Color.White.copy(alpha = 0.85f), beadR * 0.24f, Offset(pos.x - beadR * 0.35f, pos.y - beadR * 0.40f))
-    }
-    // İmame işareti (üstte altın baklava)
-    val top = Offset(c.x, c.y - rOuter - 1.dp.toPx() * k)
-    val dm = 4.5.dp.toPx() * k
-    drawPath(
-        Path().apply { moveTo(top.x, top.y - dm * 0.2f); lineTo(top.x + dm * 0.7f, top.y + dm * 0.6f); lineTo(top.x, top.y + dm * 1.6f); lineTo(top.x - dm * 0.7f, top.y + dm * 0.6f); close() },
-        p.goldBrush,
-    )
-
-    // Kristal kubbe gövdesi
     drawCircle(
-        Brush.radialGradient(
-            listOf(p.dome0, p.dome1, p.dome2),
-            center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f),
-            radius = rDisc * 1.5f,
-        ),
+        Brush.radialGradient(listOf(p.dome0, p.dome1, p.dome2), center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.38f), radius = rDisc * 1.5f),
         radius = rDisc, center = c,
     )
-    // İçten geçen ışık (sağ alt)
     drawCircle(
-        Brush.radialGradient(
-            listOf(p.domeGlow.copy(alpha = if (p.dark) 0.38f else 0.28f), Color.Transparent),
-            center = Offset(c.x + rDisc * 0.38f, c.y + rDisc * 0.55f),
-            radius = rDisc * 0.85f,
-        ),
+        Brush.radialGradient(listOf(ph.copy(alpha = if (p.dark) 0.40f else 0.28f), Color.Transparent), center = Offset(c.x + rDisc * 0.38f, c.y + rDisc * 0.55f), radius = rDisc * 0.9f),
         radius = rDisc, center = c,
     )
-    // Kesme yüzeyler
     val facet = if (p.dark) Color.White.copy(alpha = 0.04f) else p.goldDeep.copy(alpha = 0.06f)
     val rf = rDisc * 0.64f
     val oct = Path()
@@ -442,52 +436,42 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
         val a = -90f + 22.5f + 45f * j
         drawLine(facet, polar(rf, a), polar(rDisc, a), 1.dp.toPx() * k)
     }
-    // Prizma kenar
     drawCircle(
-        Brush.sweepGradient(
-            listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight),
-            center = c,
-        ),
-        radius = rDisc, center = c, style = Stroke(1.7.dp.toPx() * k), alpha = if (p.dark) 0.85f else 0.9f,
+        Brush.sweepGradient(listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight), center = c),
+        radius = rDisc, center = c, style = Stroke(1.6.dp.toPx() * k), alpha = if (p.dark) 0.85f else 0.9f,
     )
-
-    // Basma: kubbe hafifçe kararır
     if (press > 0f) drawCircle(Color.Black.copy(alpha = 0.10f * press), rDisc, c)
-
-    // Dokunuş dalgası
     if (pulse < 1f) {
         val a = 1f - pulse
-        drawCircle(p.goldLight.copy(alpha = a * 0.5f), rArc + (rOuter - rArc + 16.dp.toPx() * k) * pulse, c, style = Stroke(2.dp.toPx() * k * a + 0.6f))
         drawCircle(
-            Brush.radialGradient(listOf(Color.White.copy(alpha = a * (if (p.dark) 0.16f else 0.30f)), Color.Transparent), center = c, radius = rDisc),
+            Brush.radialGradient(listOf(ph.copy(alpha = a * 0.22f), Color.Transparent), center = c, radius = rDisc),
             radius = rDisc, center = c,
         )
     }
 
-    // İlerleme yayı
+    // ── İlerleme yayı: başlangıç renginden şimdiki renge ──
     drawCircle(if (p.dark) Color.White.copy(alpha = 0.10f) else p.goldDeep.copy(alpha = 0.12f), rArc, c, style = Stroke(stroke))
     val sweep = 360f * prog
     if (sweep > 0.4f) {
         val tl = Offset(c.x - rArc, c.y - rArc)
         val sz = Size(rArc * 2, rArc * 2)
+        val f = prog.coerceIn(0.002f, 1f)
         rotate(-90f, c) {
-            drawArc(p.gold.copy(alpha = 0.14f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 2.2f, cap = StrokeCap.Round))
+            drawArc(ph.copy(alpha = 0.16f), 0f, sweep, false, tl, sz, style = Stroke(stroke * 2.4f, cap = StrokeCap.Round))
             drawArc(
-                Brush.sweepGradient(0f to p.goldDeep, 0.5f to p.gold, 1f to p.goldLight, center = c),
+                Brush.sweepGradient(0f to phase(p, 0f), f * 0.5f to phase(p, f * 0.5f), f to ph, center = c),
                 0f, sweep, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round),
             )
         }
         val head = polar(rArc, -90f + sweep)
-        drawCircle(p.goldLight.copy(alpha = 0.35f), stroke * 2.4f, head)
+        drawCircle(ph.copy(alpha = 0.40f), stroke * 2.4f, head)
         drawCircle(Color.White, stroke * 0.85f, head)
     }
-    drawCircle(if (p.dark) Color.White.copy(alpha = 0.06f) else p.goldDeep.copy(alpha = 0.10f), rArc - 12.dp.toPx() * k, c, style = Stroke(0.8.dp.toPx() * k))
-
     // Cam parıltısı
     rotate(-35f, c) {
         drawOval(
             Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = (if (p.dark) 0.20f else 0.55f) * (1f - 0.5f * press)), Color.Transparent),
+                listOf(Color.White.copy(alpha = (if (p.dark) 0.18f else 0.50f) * (1f - 0.5f * press)), Color.Transparent),
                 startY = c.y - rDisc * 0.95f, endY = c.y - rDisc * 0.40f,
             ),
             topLeft = Offset(c.x - rDisc * 0.6f, c.y - rDisc * 0.95f),
@@ -495,22 +479,153 @@ private fun DrawScope.drawDome(p: Pal, prog: Float, rot: Float, pulse: Float, bu
         )
     }
 
-    // Hedef kutlaması: altın parçacıklar
+    // ── Tespih ipi ──
+    drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
+
+    // ── Taneler ──
+    val shadow = Color.Black.copy(alpha = if (p.dark) 0.38f else 0.16f)
+    val beadsAt = ArrayList<Pair<Int, Offset>>(33)
+    val alphas = FloatArray(33)
+    for (i in 0 until 33) {
+        val u = (((i + pos) % 33f) + 33f) % 33f
+        val v = u + 0.5f
+        val edgeDist = minOf(v, 33f - v)
+        val a = (edgeDist / 0.5f).coerceIn(0f, 1f)
+        alphas[i] = a
+        if (a <= 0.01f) continue
+        val ang = 90f + gapDeg / 2f + v * seg
+        beadsAt.add(i to polar(rB, ang))
+    }
+    // gölgeler önce
+    for ((i, q) in beadsAt) {
+        val sc = Offset(q.x, q.y + r * 0.38f)
+        drawCircle(Brush.radialGradient(listOf(shadow.copy(alpha = shadow.alpha * alphas[i]), Color.Transparent), center = sc, radius = r * 1.3f), r * 1.3f, sc)
+    }
+    val litUpTo = prog * 33f
+    for ((i, q) in beadsAt) {
+        val a = alphas[i]
+        val u = (((i + pos) % 33f) + 33f) % 33f
+        val lit = u + 0.5f <= litUpTo + 0.01f
+        // Çekilen taneler, ilerleme rengine göre ışıldar
+        if (lit) {
+            val g = phase(p, (u + 0.5f) / 33f)
+            drawCircle(Brush.radialGradient(listOf(g.copy(alpha = 0.55f * a), Color.Transparent), center = q, radius = r * 1.75f), r * 1.75f, q)
+        }
+        // gövde
+        drawCircle(
+            Brush.radialGradient(
+                0f to m.light, 0.55f to m.base, 1f to m.edge,
+                center = Offset(q.x - r * 0.30f, q.y - r * 0.36f), radius = r * 1.45f,
+            ),
+            r, q, alpha = a,
+        )
+        // doğal bulutlanma (her tanede farklı, tane ile birlikte döner)
+        val h1 = ((i * 73 + 17) % 97) / 97f
+        val h2 = ((i * 41 + 59) % 89) / 89f
+        val m1 = Offset(q.x + (h1 - 0.5f) * r * 0.8f, q.y + (h2 - 0.5f) * r * 0.7f)
+        val m2 = Offset(q.x + (h2 - 0.5f) * r * 0.7f, q.y + (0.5f - h1) * r * 0.8f)
+        drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f * a), Color.Transparent), center = m1, radius = r * (0.35f + 0.2f * h2)), r * (0.35f + 0.2f * h2), m1)
+        drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.45f * a), Color.Transparent), center = m2, radius = r * (0.30f + 0.2f * h1)), r * (0.30f + 0.2f * h1), m2)
+        // kenar koyulaşması
+        drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f * a), center = q, radius = r), r, q)
+        // altta yansıyan sıcak ışık
+        val bo = Offset(q.x + r * 0.12f, q.y + r * 0.52f)
+        drawCircle(Brush.radialGradient(listOf(m.light.copy(alpha = 0.28f * a), Color.Transparent), center = bo, radius = r * 0.45f), r * 0.45f, bo)
+        // ipeksi parlaklık + keskin ışık noktası
+        val so = Offset(q.x - r * 0.28f, q.y - r * 0.34f)
+        drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.24f * a), Color.Transparent), center = so, radius = r * 0.55f), r * 0.55f, so)
+        val sp = Offset(q.x - r * 0.30f, q.y - r * 0.38f)
+        drawCircle(Color.White.copy(alpha = 0.35f * m.spec * a), r * 0.17f, sp)
+        drawCircle(Color.White.copy(alpha = 0.95f * m.spec * a), r * 0.085f, sp)
+        if (lit) drawCircle(phase(p, (u + 0.5f) / 33f).copy(alpha = 0.10f * a), r, q)
+    }
+    // ── Nişaneler: 11. ve 22. tanelerden sonra telkari ara parçalar ──
+    for (b in listOf(11, 22)) {
+        val u = (((b + pos) % 33f) + 33f) % 33f
+        val edgeDist = minOf(u, 33f - u)
+        if (edgeDist < 0.3f) continue
+        val ang = 90f + gapDeg / 2f + u * seg
+        val q = polar(rB, ang)
+        rotate(ang, q) {
+            val w = r * 0.42f
+            val h = r * 0.95f
+            drawRoundRect(
+                metalBrush(m.silver, Offset(q.x - w, q.y - h), Offset(q.x + w, q.y + h)),
+                topLeft = Offset(q.x - w / 2, q.y - h / 2), size = Size(w, h), cornerRadius = CornerRadius(w * 0.3f),
+            )
+            drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x - w * 0.15f, q.y - h * 0.35f), Offset(q.x - w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
+            drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x + w * 0.15f, q.y - h * 0.35f), Offset(q.x + w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
+        }
+    }
+
+    // ── İmame: telkari başlık + uzun tane + telkari uç + halka + püskül ──
+    val ir = minOf(r, 12.dp.toPx() * k)
+    val x0 = c.x
+    var y = c.y + rB - ir * 0.55f
+    // üst telkari koni
+    val capH = ir * 0.95f
+    val capPath = Path().apply {
+        moveTo(x0 - ir * 0.62f, y); lineTo(x0 + ir * 0.62f, y)
+        lineTo(x0 + ir * 0.30f, y + capH); lineTo(x0 - ir * 0.30f, y + capH); close()
+    }
+    drawPath(capPath, metalBrush(m.silver, Offset(x0 - ir, y), Offset(x0 + ir, y + capH)))
+    for (j in -2..2) drawLine(Color.Black.copy(alpha = 0.35f), Offset(x0 + j * ir * 0.22f, y + capH * 0.12f), Offset(x0 + j * ir * 0.11f, y + capH * 0.9f), 0.6.dp.toPx() * k)
+    y += capH
+    // uzun gövde tanesi
+    val bodyH = ir * 2.3f
+    val bodyW = ir * 1.35f
+    drawOval(
+        Brush.radialGradient(0f to m.light, 0.55f to m.base, 1f to m.edge, center = Offset(x0 - bodyW * 0.18f, y + bodyH * 0.30f), radius = bodyH * 0.75f),
+        topLeft = Offset(x0 - bodyW / 2, y), size = Size(bodyW, bodyH),
+    )
+    drawOval(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), center = Offset(x0 - bodyW * 0.18f, y + bodyH * 0.28f), radius = bodyW * 0.5f), topLeft = Offset(x0 - bodyW / 2, y), size = Size(bodyW, bodyH))
+    drawCircle(Color.White.copy(alpha = 0.9f * m.spec), ir * 0.09f, Offset(x0 - bodyW * 0.2f, y + bodyH * 0.26f))
+    y += bodyH - ir * 0.15f
+    // alt telkari koni
+    val cap2 = Path().apply {
+        moveTo(x0 - ir * 0.42f, y); lineTo(x0 + ir * 0.42f, y)
+        lineTo(x0 + ir * 0.14f, y + ir * 0.8f); lineTo(x0 - ir * 0.14f, y + ir * 0.8f); close()
+    }
+    drawPath(cap2, metalBrush(m.silver, Offset(x0 - ir, y), Offset(x0 + ir, y + ir)))
+    y += ir * 0.8f
+    // halka
+    drawCircle(metalBrush(m.silver, Offset(x0 - ir, y), Offset(x0 + ir, y + ir)), ir * 0.24f, Offset(x0, y + ir * 0.22f), style = Stroke(1.4.dp.toPx() * k))
+    y += ir * 0.46f
+    // püskül: dokununca hafifçe sallanır
+    val sway = if (reduce || pulse >= 1f) 0f else sin(pulse * 2f * PI.toFloat() * 1.5f) * (1f - pulse) * 9f
+    val tassel = 24.dp.toPx() * k
+    val silk = if (m.silver) Color(0xFFD9A441) else p.gold
+    rotate(sway, Offset(x0, y)) {
+        for (j in 0 until 15) {
+            val t = (j - 7) / 7f
+            val endX = x0 + t * ir * 0.9f
+            drawLine(
+                Brush.verticalGradient(listOf(silk, silk.copy(alpha = 0.55f)), startY = y, endY = y + tassel),
+                Offset(x0 + t * ir * 0.18f, y), Offset(endX, y + tassel * (0.92f + 0.08f * (1f - abs(t)))), 1.1.dp.toPx() * k, cap = StrokeCap.Round,
+            )
+        }
+        drawCircle(metalBrush(m.silver, Offset(x0 - ir, y), Offset(x0 + ir, y + ir)), ir * 0.2f, Offset(x0, y + ir * 0.05f))
+    }
+
+    // ── Hedef kutlaması ──
     if (burst < 1f) {
         val a = 1f - burst
-        drawCircle(p.goldLight.copy(alpha = a * 0.7f), rArc, c, style = Stroke(stroke * (1f + 2.5f * burst)))
-        val e = 1f - (1f - burst) * (1f - burst)
-        if (!reduce) for (j in 0 until 28) {
-            val ang = j * (360f / 28f) + (j % 3) * 4f
-            val dist = rDisc * 0.85f + (rOuter * 1.08f - rDisc * 0.85f) * e * (0.7f + 0.3f * ((j * 7) % 5) / 4f)
-            val q = polar(dist, ang)
-            val r = (1.6f + (j % 4) * 0.6f) * k * density * a
-            if (j % 3 == 0) {
-                val L = r * 3.2f
-                drawLine(p.goldLight.copy(alpha = a), Offset(q.x - L, q.y), Offset(q.x + L, q.y), r * 0.55f, cap = StrokeCap.Round)
-                drawLine(p.goldLight.copy(alpha = a), Offset(q.x, q.y - L), Offset(q.x, q.y + L), r * 0.55f, cap = StrokeCap.Round)
-            } else {
-                drawCircle(p.gold.copy(alpha = a), r, q)
+        drawCircle(ph.copy(alpha = a * 0.7f), rArc, c, style = Stroke(stroke * (1f + 2.5f * burst)))
+        if (!reduce) {
+            val e = 1f - (1f - burst) * (1f - burst)
+            for (j in 0 until 28) {
+                val ang = j * (360f / 28f) + (j % 3) * 4f
+                val dist = rDisc * 0.85f + (rB * 1.12f - rDisc * 0.85f) * e * (0.7f + 0.3f * ((j * 7) % 5) / 4f)
+                val q = polar(dist, ang)
+                val rr = (1.6f + (j % 4) * 0.6f) * k * density * a
+                val col = phase(p, (j % 5) / 4f)
+                if (j % 3 == 0) {
+                    val L = rr * 3.2f
+                    drawLine(col.copy(alpha = a), Offset(q.x - L, q.y), Offset(q.x + L, q.y), rr * 0.55f, cap = StrokeCap.Round)
+                    drawLine(col.copy(alpha = a), Offset(q.x, q.y - L), Offset(q.x, q.y + L), rr * 0.55f, cap = StrokeCap.Round)
+                } else {
+                    drawCircle(col.copy(alpha = a), rr, q)
+                }
             }
         }
     }
