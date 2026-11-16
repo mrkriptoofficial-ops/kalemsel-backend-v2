@@ -4,6 +4,14 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import kotlin.math.exp
+import kotlin.math.sqrt
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -283,6 +291,11 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     }
     // Tespih tanelerinin konumu (tane biriminde); her dokunuşta bir tane kayar
     val rot = remember { Animatable(d.count.toFloat()) }
+    val galaxy = remember { GalaxySprite() }
+    // Galaksi yavaşça, sonsuz döner (hareket azaltma açıksa durur)
+    val spin = if (reduce) remember { mutableStateOf(0f) } else rememberInfiniteTransition(label = "galaksi").animateFloat(
+        0f, 360f, infiniteRepeatable(tween(240_000, easing = LinearEasing)), label = "dönüş",
+    )
     LaunchedEffect(d.count, d.key) {
         val t = d.count.toFloat()
         if (reduce || abs(t - rot.value) > 33f || t < rot.value - 0.001f) {
@@ -334,7 +347,19 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            val mat = BEADS[bead.coerceIn(0, BEADS.lastIndex)]
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce, back = true) }
+            // Galaksi kendi katmanında döner: her karede yeniden çizilmez, yalnızca katman döndürülür
+            Canvas(
+                Modifier.fillMaxSize().graphicsLayer {
+                    rotationZ = spin.value + rot.value * 3f
+                    transformOrigin = TransformOrigin(0.5f, 0.5f / DOME_H)
+                },
+            ) {
+                val rD = discRadius()
+                drawImage(galaxy.get(rD, this), Offset(size.width / 2f - rD, size.width / 2f - rD))
+            }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
@@ -463,7 +488,7 @@ fun domeTone(m: BeadMat, t: Float): AmberTone {
 }
 
 /** Oltu (siyah) ve kristal (koyu zeminde saydam) kubbede rakam açık renk olur. */
-fun domeNeedsLightText(m: BeadMat): Boolean = m.name == "Oltu" || m.name == "Kristal"
+fun domeNeedsLightText(@Suppress("UNUSED_PARAMETER") m: BeadMat): Boolean = true   // koyu galaksi kubbesi
 
 /** Çektikçe değişen renk: gece mavisi → menekşe → gül → kehribar → altın. */
 private fun phase(p: Pal, t: Float): Color {
@@ -479,6 +504,72 @@ private fun metalBrush(silver: Boolean, a: Offset, b: Offset): Brush = Brush.lin
     else listOf(Color(0xFFF7E4AA), Color(0xFFB88A3A), Color(0xFFEDCD82), Color(0xFF6E5018)),
     start = a, end = b,
 )
+
+/** Kubbe yarıçapı (drawDome ile aynı geometri). */
+private fun DrawScope.discRadius(): Float {
+    val k = size.width / 380.dp.toPx()
+    val seg = (360f - 23f) / (33f + PULL_GAP)
+    val f = PI.toFloat() * seg / 360f
+    val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f)
+    return rB - rB * f - 7.dp.toPx() * k
+}
+
+/** Kubbenin içindeki sarmal galaksi: bir kez çizilip önbelleğe alınır, katman olarak döndürülür. */
+class GalaxySprite {
+    private var key = -1
+    private var cached: ImageBitmap? = null
+    fun get(rDisc: Float, density: Density): ImageBitmap {
+        val size = ceil(rDisc * 2f).toInt().coerceAtLeast(4)
+        cached?.let { if (key == size) return it }
+        val bmp = ImageBitmap(size, size)
+        CanvasDrawScope().draw(density, LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(bmp), Size(size.toFloat(), size.toFloat())) {
+            drawGalaxyInto(Offset(size / 2f, size / 2f), rDisc)
+        }
+        key = size; cached = bmp
+        return bmp
+    }
+}
+
+private val GALAXY_COLORS = listOf(Color(0xFFFFE7B0), Color(0xFFC9D8FF), Color(0xFFB7A2FF), Color.White)
+
+private fun DrawScope.drawGalaxyInto(c: Offset, R: Float) {
+    val u = R / 140f
+    val rnd = java.util.Random(3)
+    // çekirdek ışığı ve hafif mor bulutsu
+    drawCircle(Brush.radialGradient(0f to Color(0xFFFFF0CC).copy(alpha = 0.34f), 0.12f to Color(0xFFF2C46A).copy(alpha = 0.16f), 0.40f to Color(0xFF7C6BD6).copy(alpha = 0.07f), 1f to Color.Transparent, center = c, radius = R), R, c)
+    for (arm in 0 until 2) {
+        // bulutsu kolu: geniş, çok soluk lekeler
+        for (i in 0 until 26) {
+            val t = i / 26f
+            val th = arm * PI + t * 4.2 * PI * 0.55
+            val r = R * 0.06f * exp(t * 2.6).toFloat()
+            if (r > R * 0.9f) continue
+            val q = Offset(c.x + r * cos(th).toFloat(), c.y + r * sin(th).toFloat())
+            val rr = (10f + 16f * t) * u
+            val col = if (i % 2 == 0) Color(0xFF8C7BE8) else Color(0xFF6E8FE0)
+            drawCircle(Brush.radialGradient(listOf(col.copy(alpha = 0.10f), Color.Transparent), center = q, radius = rr), rr, q)
+        }
+        for (i in 0 until 420) {
+            val t = rnd.nextFloat()
+            val th = arm * PI + t * 4.2 * PI * 0.55
+            val r = (R * 0.06f * exp(t * 2.6).toFloat() + rnd.nextGaussian().toFloat() * (4f + 10f * t) * u)
+            if (r > R * 0.97f || r < 0f) continue
+            val a = th + rnd.nextGaussian() * 0.12
+            val q = Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat())
+            val col = GALAXY_COLORS[rnd.nextInt(GALAXY_COLORS.size)]
+            val sz = (0.4f + rnd.nextFloat() * 1.0f) * u
+            val al = (0.3f + rnd.nextFloat() * 0.6f) * (1f - 0.4f * t)
+            if (sz > 1.0f * u) drawCircle(col.copy(alpha = al * 0.18f), sz * 3f, q)
+            drawCircle(col.copy(alpha = al), sz, q)
+        }
+    }
+    // uzak yıldız tozu
+    for (i in 0 until 90) {
+        val r = R * 0.95f * sqrt(rnd.nextFloat())
+        val a = rnd.nextFloat() * 2 * PI
+        drawCircle(Color.White.copy(alpha = 0.15f + rnd.nextFloat() * 0.35f), (0.4f + rnd.nextFloat() * 0.5f) * u, Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat()))
+    }
+}
 
 /** Tane görüntüleri önbelleği: malzeme ya da boyut değişince bir kez üretilir. */
 class BeadSprites {
@@ -574,7 +665,7 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(WARM_SPEC.copy(alpha = 0.85f * m.spec), r * 0.065f, spt)
 }
 
-private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean, back: Boolean = false) {
     val k = size.width / 380.dp.toPx()
     val gapDeg = 23f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
@@ -593,51 +684,29 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     }
 
     // ── Hâle: rengi ilerlemeyle değişir ──
-    drawCircle(
+    if (back) drawCircle(
         Brush.radialGradient(listOf(ph.copy(alpha = if (p.dark) 0.30f else 0.22f), Color.Transparent), center = c, radius = rB * 1.22f),
         radius = rB * 1.22f, center = c,
     )
 
-    // ── Kubbe, seçilen tespih malzemesinin renginde; sayı arttıkça koyulaşır ──
-    val am = domeTone(m, prog)
-    val sh = Offset(c.x, c.y + rDisc * 0.10f)
-    drawCircle(
-        Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.50f else 0.20f), Color.Transparent), center = sh, radius = rDisc * 1.14f),
-        radius = rDisc * 1.14f, center = sh,
-    )
-    // Yarı saydam malzemede (kristal) arka zemin görünmesin diye altına koyu bir taban
-    if (am.base.alpha < 1f) drawCircle(p.dome2, rDisc, c)
-    // gövde: kristal gibi yarı saydam; merkez daha berrak, kenara doğru yoğunlaşır (camın kalınlığı)
-    drawCircle(
-        Brush.radialGradient(
-            0f to am.light.copy(alpha = am.light.alpha * 0.80f), 0.55f to am.base.copy(alpha = am.base.alpha * 0.84f), 1f to am.edge.copy(alpha = am.edge.alpha * 0.95f),
-            center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.36f), radius = rDisc * 1.5f,
-        ),
-        radius = rDisc, center = c,
-    )
-    // doğal bulutlanma (sıkma kehribar dokusu)
-    for ((ox, oy, rr, light) in AMBER_CLOUDS) {
-        val q = Offset(c.x + ox * rDisc, c.y + oy * rDisc)
-        val col = if (light) m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.14f) else m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.09f)
-        drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), center = q, radius = rr * rDisc), rr * rDisc, q)
+    // ── Kubbe: koyu, derin bir cam; içindeki galaksi ayrı katmanda döner (bkz. drawGalaxy) ──
+    if (back) {
+        val sh = Offset(c.x, c.y + rDisc * 0.10f)
+        drawCircle(
+            Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.55f else 0.25f), Color.Transparent), center = sh, radius = rDisc * 1.14f),
+            radius = rDisc * 1.14f, center = sh,
+        )
+        drawCircle(
+            Brush.radialGradient(0f to Color(0xFF120E2E), 0.55f to Color(0xFF070A1E), 1f to Color(0xFF02030B), center = c, radius = rDisc),
+            radius = rDisc, center = c, alpha = 0.94f,
+        )
+        return
     }
-    // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
-    drawCircle(
-        Brush.radialGradient(listOf(am.light.copy(alpha = 0.15f), Color.Transparent), center = Offset(c.x + rDisc * 0.30f, c.y + rDisc * 0.55f), radius = rDisc * 0.7f),
-        radius = rDisc, center = c,
-    )
-    drawCircle(Brush.radialGradient(0.72f to Color.Transparent, 1f to am.edge.copy(alpha = 0.65f), center = c, radius = rDisc), rDisc, c)
     // Kristal: kenarda ışık kırılması (fresnel) — iç kenar boyunca ince, aydınlık bir halka
-    val glass = if (m.name == "Kehribar") WARM_SPEC else Color.White
+    val glass = Color(0xFFDCE8FF)
     drawCircle(
         Brush.radialGradient(0.86f to Color.Transparent, 0.965f to glass.copy(alpha = 0.30f), 1f to Color.Transparent, center = c, radius = rDisc),
         rDisc, c,
-    )
-    // Alttan çıkan kostik: ışık camdan geçip alt kenarda toplanır
-    val caus = Offset(c.x + rDisc * 0.08f, c.y + rDisc * 0.70f)
-    drawOval(
-        Brush.radialGradient(listOf(am.light.copy(alpha = 0.55f), Color.Transparent), center = caus, radius = rDisc * 0.50f),
-        topLeft = Offset(caus.x - rDisc * 0.55f, caus.y - rDisc * 0.20f), size = Size(rDisc * 1.10f, rDisc * 0.40f),
     )
     // Sol üstte ince hilal yansıma (cam yüzeyi); büyük beyaz parlama yok
     run {
@@ -645,7 +714,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawArc(
             Brush.sweepGradient(
                 0f to Color.Transparent, 0.52f to Color.Transparent, 0.60f to glass.copy(alpha = 0.10f),
-                0.67f to glass.copy(alpha = 0.42f), 0.74f to glass.copy(alpha = 0.10f), 0.82f to Color.Transparent, 1f to Color.Transparent,
+                0.67f to glass.copy(alpha = 0.36f), 0.74f to glass.copy(alpha = 0.10f), 0.82f to Color.Transparent, 1f to Color.Transparent,
                 center = c,
             ),
             startAngle = 190f, sweepAngle = 95f, useCenter = false,
@@ -668,7 +737,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     }
 
     // ── İlerleme yayı (kehribar üzerinde krem rengi) ──
-    drawCircle(Color.Black.copy(alpha = 0.14f), rArc, c, style = Stroke(stroke))
+    drawCircle(Color.White.copy(alpha = 0.07f), rArc, c, style = Stroke(stroke))
     val sweep = 360f * prog
     if (sweep > 0.4f) {
         val tl = Offset(c.x - rArc, c.y - rArc)
@@ -681,13 +750,6 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawCircle(Color.White.copy(alpha = 0.35f), stroke * 2.4f, head)
         drawCircle(Color.White, stroke * 0.85f, head)
     }
-    // Kubbede beyaz yansıma yok; yalnızca berrak kehribar damlaları ve alttan gelen sıcak ışık
-    if (m.name == "Kehribar") clipPath(Path().apply { addOval(Rect(c, rDisc)) }) {
-        drawAmberDrop(c.x - rDisc * 0.50f, c.y + rDisc * 0.45f, rDisc * 0.42f, 20f)
-        drawAmberDrop(c.x + rDisc * 0.52f, c.y - rDisc * 0.40f, rDisc * 0.34f, 75f)
-    }
-    val bounce = Offset(c.x + rDisc * 0.12f, c.y + rDisc * 0.56f)
-    drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.10f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
 
     // ── Tespih ipi ──
     // Gerçek tespih ipi gibi: iki kat bükülmüş ipek; koyu gövde üstünde çapraz dönen iplik parlamaları
