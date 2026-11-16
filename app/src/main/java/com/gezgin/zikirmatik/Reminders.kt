@@ -38,23 +38,27 @@ object Reminders {
     )
 
     private fun one(ctx: Context, code: Int, on: Boolean, minutes: Int) {
-        val am = ctx.getSystemService(AlarmManager::class.java) ?: return
+        val am = ContextCompat.getSystemService(ctx, AlarmManager::class.java) ?: return
         val pi = pending(ctx, code)
         am.cancel(pi)
         if (!on) return
         val now = ZonedDateTime.now()
         var t = now.withHour(minutes / 60).withMinute(minutes % 60).withSecond(0).withNano(0)
         if (!t.isAfter(now.plusSeconds(20))) t = t.plusDays(1)
-        // Doze sırasında da çalışır; tam zamanlı alarm izni gerektirmez
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t.toInstant().toEpochMilli(), pi)
+        // Doze sırasında da çalışır; tam zamanlı alarm izni gerektirmez (Doze, Android 6.0 ile geldi)
+        if (Build.VERSION.SDK_INT >= 23) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t.toInstant().toEpochMilli(), pi)
+        else am.set(AlarmManager.RTC_WAKEUP, t.toInstant().toEpochMilli(), pi)
     }
 
     fun notify(ctx: Context, code: Int) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm?.createNotificationChannel(NotificationChannel(CH, L("Zikir hatırlatmaları", "Dhikr reminders"), NotificationManager.IMPORTANCE_DEFAULT))
+        // Bildirim kanalları Android 8.0 ile geldi; öncesinde gerekmez
+        if (Build.VERSION.SDK_INT >= 26) {
+            ContextCompat.getSystemService(ctx, NotificationManager::class.java)
+                ?.createNotificationChannel(NotificationChannel(CH, L("Zikir hatırlatmaları", "Dhikr reminders"), NotificationManager.IMPORTANCE_DEFAULT))
+        }
         val open = PendingIntent.getActivity(
             ctx, 10 + code, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -108,9 +112,13 @@ class ZikirWidget : AppWidgetProvider() {
             val s = repo.loadSettings()
             if (z != null && s.haptic > 0) {
                 val vib = ctx.systemVibrator()
-                if (vib.hasVibrator()) {
+                val done = z.count > 0 && z.count % z.target == 0
+                if (vib.hasVibrator() && Build.VERSION.SDK_INT < 26) {
+                    // Android 8.0 öncesi: arka plan kısıtlaması yok, basit titreşim yeterli
+                    if (done) vib.waveformCompat(longArrayOf(0, 60, 70, 60, 70, 220)) else vib.oneShotCompat(14, 150)
+                } else if (vib.hasVibrator()) {
                     val effect = when {
-                        z.count > 0 && z.count % z.target == 0 -> VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60, 70, 220), -1)
+                        done -> VibrationEffect.createWaveform(longArrayOf(0, 60, 70, 60, 70, 220), -1)
                         Build.VERSION.SDK_INT >= 29 -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
                         else -> VibrationEffect.createOneShot(14, 150)
                     }

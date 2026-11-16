@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.gezgin.zikirmatik"
-        minSdk = 26
+        minSdk = 21   // Android 5.0 ve üstü
         targetSdk = 34
-        versionCode = 14
-        versionName = "2.9"
+        versionCode = 15
+        versionName = "3.0"
     }
 
     signingConfigs {
@@ -33,6 +33,8 @@ android {
         }
     }
     compileOptions {
+        // java.time (tarih/saat) Android 8.0 öncesinde yok; derleme sırasında uygulamaya gömülür
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -54,5 +56,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     testImplementation("junit:junit:4.13.2")
 }

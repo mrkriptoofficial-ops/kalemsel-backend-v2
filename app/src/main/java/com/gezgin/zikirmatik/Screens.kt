@@ -404,7 +404,7 @@ private fun WeekBars(st: AppState) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        d.dayOfWeek.getDisplayName(JTextStyle.SHORT, I18n.locale).take(3),
+                        (if (I18n.en) DAYS_EN else DAYS_TR)[d.dayOfWeek.value - 1],
                         style = TextStyle(fontFamily = Sans, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, fontSize = 11.sp, color = if (isToday) p.text else p.sub),
                     )
                 }
@@ -412,6 +412,9 @@ private fun WeekBars(st: AppState) {
         }
     }
 }
+
+private val DAYS_TR = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+private val DAYS_EN = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 private fun compact(v: Int): String = when {
     v >= 10_000 -> "${v / 1000}" + L("B", "K")
@@ -580,7 +583,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 2.9\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.9\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 3.0\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.0\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))

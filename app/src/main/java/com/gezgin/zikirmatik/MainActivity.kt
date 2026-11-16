@@ -159,10 +159,13 @@ fun ZikirApp(act: MainActivity) {
     // Bildirim izni reddedilirse hatırlatıcıları kapat ve kullanıcıyı ayara yönlendir
     val openNotifySettings = {
         runCatching {
-            ctx.startActivity(
+            // Uygulamaya özel bildirim ayarı ekranı Android 8.0 ile geldi; öncesinde uygulama bilgisi açılır
+            val i = if (Build.VERSION.SDK_INT >= 26) {
                 Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(AndroidSettings.EXTRA_APP_PACKAGE, ctx.packageName)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+            } else {
+                Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + ctx.packageName))
+            }
+            ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
         Unit
     }

@@ -27,6 +27,20 @@ fun Context.systemVibrator(): Vibrator =
         getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
 
+// ───────────── Eski Android sürümleri için titreşim yardımcıları (VibrationEffect API 26+) ─────────────
+fun Vibrator.oneShotCompat(ms: Long, amp: Int) {
+    if (Build.VERSION.SDK_INT >= 26) vibrate(VibrationEffect.createOneShot(ms, amp))
+    else @Suppress("DEPRECATION") vibrate(ms)
+}
+
+fun Vibrator.waveformCompat(timings: LongArray, amps: IntArray? = null) {
+    when {
+        Build.VERSION.SDK_INT >= 26 && amps != null && hasAmplitudeControl() -> vibrate(VibrationEffect.createWaveform(timings, amps, -1))
+        Build.VERSION.SDK_INT >= 26 -> vibrate(VibrationEffect.createWaveform(timings, -1))
+        else -> @Suppress("DEPRECATION") vibrate(timings, -1)
+    }
+}
+
 /** Katmanlı titreşim (destekleyen cihazlarda ince ayarlı haptik primitifler) + sentezlenmiş tespih tanesi sesi. */
 class Feedback(ctx: Context) {
     private val vib = ctx.systemVibrator()
@@ -36,7 +50,7 @@ class Feedback(ctx: Context) {
     )
     private val rnd = java.util.Random()
     private val main = Handler(Looper.getMainLooper())
-    private val audio = ctx.getSystemService(AudioManager::class.java)
+    private val audio = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
     /** Telefon sessiz ya da titreşim modundaysa (ör. camide) ses çıkarma. */
     private fun silent(): Boolean = audio != null && audio.ringerMode != AudioManager.RINGER_MODE_NORMAL
@@ -82,8 +96,8 @@ class Feedback(ctx: Context) {
         if (level <= 0 || !hasVib) return
         val l = level.coerceIn(1, 3)
         val e = tapFx[l]
-        if (e != null) vib.vibrate(e)
-        else vib.vibrate(VibrationEffect.createOneShot(longArrayOf(0, 8, 14, 22)[l], 255))
+        if (e != null && Build.VERSION.SDK_INT >= 26) vib.vibrate(e)
+        else vib.oneShotCompat(longArrayOf(0, 8, 14, 22)[l], 255)
     }
 
     fun milestone(level: Int) {
@@ -96,7 +110,7 @@ class Feedback(ctx: Context) {
                     .compose()
             )
             Build.VERSION.SDK_INT >= 29 -> vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK))
-            else -> vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 25, 60, 25), -1))
+            else -> vib.waveformCompat(longArrayOf(0, 25, 60, 25))
         }
     }
 
@@ -113,18 +127,16 @@ class Feedback(ctx: Context) {
             )
             return
         }
-        val t = longArrayOf(0, 40, 80, 40, 90, 110)
-        if (vib.hasAmplitudeControl()) vib.vibrate(VibrationEffect.createWaveform(t, intArrayOf(0, 150, 0, 190, 0, 230), -1))
-        else vib.vibrate(VibrationEffect.createWaveform(t, -1))
+        vib.waveformCompat(longArrayOf(0, 40, 80, 40, 90, 110), intArrayOf(0, 150, 0, 190, 0, 230))
     }
 
     /** "Olmaz" hissi: üç kısa, yumuşak titreşim. */
     fun error(level: Int) {
         if (level <= 0 || !hasVib) return
-        if (vib.hasAmplitudeControl()) {
-            vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 18, 40, 18, 40, 18), intArrayOf(0, 90, 0, 90, 0, 90), -1))
+        if (Build.VERSION.SDK_INT >= 26 && vib.hasAmplitudeControl()) {
+            vib.waveformCompat(longArrayOf(0, 18, 40, 18, 40, 18), intArrayOf(0, 90, 0, 90, 0, 90))
         } else {
-            vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 15, 45, 15), -1))
+            vib.waveformCompat(longArrayOf(0, 15, 45, 15))
         }
     }
 
