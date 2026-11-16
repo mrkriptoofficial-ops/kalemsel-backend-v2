@@ -148,6 +148,16 @@ class Feedback(ctx: Context) {
         pool?.play(ids[i], v, v, 1, 0, 0.97f + rnd.nextFloat() * 0.06f)
     }
 
+    /** Tespih çekme: önce tanenin ipte kayma sesi, hemen ardından diğer taneye çarpma tıkı. */
+    fun pull(type: Int, volume: Float) {
+        val i = SOUNDS.indexOfFirst { it.name == "kayma" }
+        if (i >= 0 && ready[i] && volume > 0f && !silent()) {
+            val v = (volume * 0.55f).coerceAtMost(1f)
+            pool?.play(ids[i], v, v, 1, 0, 0.96f + rnd.nextFloat() * 0.08f)
+            main.postDelayed({ click(type, volume) }, 55)
+        } else click(type, volume)
+    }
+
     /** Ara sayıda iki tanenin art arda çarpması. */
     fun doubleClick(type: Int, volume: Float) {
         click(type, volume)
@@ -196,6 +206,15 @@ private val SOUNDS = listOf(
         sin(2 * PI * 3520 * t) * exp(-t * 18) * 0.30 + sin(2 * PI * 5280 * t) * exp(-t * 26) * 0.16 +
             sin(2 * PI * 7040 * t) * exp(-t * 40) * 0.08 + sin(2 * PI * 4980 * t) * exp(-t * 300) * 0.20
     },
+    // Kayma: tane ipte kayarken çıkan kısa, yumuşak sürtünme (filtrelenmiş gürültü, frekansı yükselip alçalır)
+    SndSpec("kayma", 0.090) { t, rnd, st ->
+        val x = t / 0.090
+        val env = sin(PI * x).let { it * it }
+        val a = 0.06 + 0.30 * sin(PI * x)
+        st[0] += a * ((rnd.nextDouble() * 2 - 1) - st[0])
+        st[1] += a * (st[0] - st[1])
+        (st[0] - st[1]) * env * 2.2
+    },
     // Hedef zili: yumuşak çan (inharmonik kısmi sesler), ardından beşli aralıkta ikinci nota
     SndSpec("zil", 1.6) { t, _, _ ->
         fun bell(f: Double, tt: Double): Double = if (tt < 0) 0.0 else
@@ -209,7 +228,7 @@ private val SOUNDS = listOf(
 /** Sesi önbelleğe yazar; yarım kalmış dosya kalmasın diye önce geçici dosyaya yazıp taşır. */
 private fun ensureWav(ctx: Context, spec: SndSpec): File {
     val n = (SR * spec.seconds).toInt()
-    val f = File(ctx.cacheDir, "snd_${spec.name}_v5.wav")
+    val f = File(ctx.cacheDir, "snd_${spec.name}_v6.wav")
     if (f.length() == 44L + n * 2L) return f
     val rnd = java.util.Random(11)
     val st = DoubleArray(2)

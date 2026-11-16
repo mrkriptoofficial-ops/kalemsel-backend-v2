@@ -162,9 +162,9 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         if (settings.sound) {
             val v = SOUND_VOLUMES[settings.soundVol.coerceIn(0, 2)]
             when {
-                r.completed -> { fb.click(settings.soundType, v); fb.chime(v) }
+                r.completed -> { fb.pull(settings.soundType, v); fb.chime(v) }
                 r.milestone -> fb.doubleClick(settings.soundType, v)
-                else -> fb.click(settings.soundType, v)
+                else -> fb.pull(settings.soundType, v)
             }
         }
         val h = settings.haptic
@@ -263,7 +263,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         if (prev.count == 0) return
         replace(prev.copy(count = 0))
         scope.launch {
-            val r = snack.showSnackbar(L("${prev.okunus} sıfırlandı", "${prev.okunus} reset"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
+            val r = snack.showSnackbar(Lf("{0} sıfırlandı", "{0} reset", prev.okunus), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed) zikirs.firstOrNull { it.id == prev.id }?.let { replace(it.copy(count = Engine.undoReset(it.count, prev.count))) }
         }
     }
@@ -291,7 +291,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         repo.saveZikirs(zikirs)
         if (selId == z.id) { selId = zikirs[(idx - 1).coerceAtLeast(0)].id; repo.selId = selId }
         scope.launch {
-            val r = snack.showSnackbar(L("${z.okunus} silindi", "${z.okunus} deleted"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
+            val r = snack.showSnackbar(Lf("{0} silindi", "{0} deleted", z.okunus), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed && zikirs.none { it.id == z.id }) {
                 zikirs.add(idx.coerceAtMost(zikirs.size), z)
                 repo.saveZikirs(zikirs)
@@ -318,7 +318,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         zikirs.add(z)
         repo.saveZikirs(zikirs)
         soft(2)
-        scope.launch { snack.showSnackbar(L("${item.zikirOkunus} zikirlerine eklendi", "${item.zikirOkunus} added to your dhikr"), duration = SnackbarDuration.Short) }
+        scope.launch { snack.showSnackbar(Lf("{0} zikirlerine eklendi", "{0} added to your dhikr", item.zikirOkunus), duration = SnackbarDuration.Short) }
     }
 
     // ───────────── Tesbihat / vird ─────────────
@@ -351,7 +351,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             repo.saveSession(session)
         } else {
             endSession()
-            scope.launch { snack.showSnackbar(L("${v.name} tamamlandı · Allah kabul etsin", "${v.name} complete · May Allah accept it"), duration = SnackbarDuration.Long) }
+            scope.launch { snack.showSnackbar(Lf("{0} tamamlandı · Allah kabul etsin", "{0} complete · May Allah accept it", v.name), duration = SnackbarDuration.Long) }
         }
     }
 
@@ -376,7 +376,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         repo.saveVirds(virds)
         if (session?.virdId == v.id) endSession()
         scope.launch {
-            val r = snack.showSnackbar(L("${v.name} silindi", "${v.name} deleted"), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
+            val r = snack.showSnackbar(Lf("{0} silindi", "{0} deleted", v.name), L("Geri al", "Undo"), duration = SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed) { virds.add(idx.coerceAtMost(virds.size), v); repo.saveVirds(virds) }
         }
     }

@@ -72,7 +72,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private val TR = Locale.forLanguageTag("tr")
-fun fmt(n: Int): String = String.format(I18n.locale, "%,d", n)
+fun fmt(n: Int): String = String.format(I18n.numLocale, "%,d", n)
 
 @Composable
 fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
@@ -107,7 +107,7 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = L("${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun.", "${d.okunus}. ${d.shown} of ${d.target}. Tap to count.")
+                    contentDescription = Lf("{0}. {1}, hedef {2}. Saymak için dokunun.", "{0}. {1} of {2}. Tap to count.", d.okunus, d.shown, d.target)
                     role = Role.Button
                     liveRegion = LiveRegionMode.Polite
                     onClick { st.tap(); true }
@@ -150,7 +150,8 @@ private fun ZikirCard(st: AppState, d: Disp) {
                         detectHorizontalDragGestures(
                             onDragStart = { drag = 0f },
                             onDragEnd = {
-                                if (drag < -90f) st.step(1) else if (drag > 90f) st.step(-1)
+                                val dir = if (I18n.rtl) -1 else 1   // sağdan sola dillerde kaydırma yönü ters
+                                if (drag < -90f) st.step(dir) else if (drag > 90f) st.step(-dir)
                                 drag = 0f
                             },
                         ) { _, dx -> drag += dx }
@@ -199,11 +200,12 @@ private fun ZikirCard(st: AppState, d: Disp) {
                                 maxLines = 2,
                             )
                         }
-                        if (z.anlam.isNotBlank()) {
+                        // Anlam ve fazilet metinleri Türkçe; diğer dillerde sayaç kartında gösterilmez (Kütüphane'de görünür)
+                        if (z.anlam.isNotBlank() && I18n.tr) {
                             Spacer(Modifier.height(5.dp))
                             Text(z.anlam, style = bodyStyle(p.sub).copy(fontSize = 13.sp, textAlign = TextAlign.Center), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        if (z.fazilet.isNotBlank()) {
+                        if (z.fazilet.isNotBlank() && I18n.tr) {
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 z.fazilet,
@@ -297,7 +299,8 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     LaunchedEffect(shakeKey) { if (shakeKey > 0 && !reduce) for (x in listOf(9f, -7f, 5f, -3f, 0f)) shake.animateTo(x, tween(45)) }
     val press by animateFloatAsState(if (pressed) 1f else 0f, spring(stiffness = 900f), label = "bas")
     // Kehribar koyulaştıkça yazı rengi okunaklı kalacak şekilde döner
-    val darkAmber by remember { derivedStateOf { amberIsDark(prog.value) } }
+    // Koyu malzemede (oltu, kristal) açık renk yazı, açık malzemede koyu yazı
+    val darkAmber = domeNeedsLightText(BEADS[bead.coerceIn(0, BEADS.lastIndex)])
     val onAmber by animateColorAsState(if (darkAmber) Color(0xFFFFF4DC) else Color(0xFF2E1703), tween(400), label = "yazı")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
@@ -318,7 +321,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, (d.count - rot.value).coerceIn(0f, 1f), pulse.value, burst.value, press, reduce) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
@@ -344,7 +347,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                     )
                 }
                 Text(
-                    L("HEDEF  ${fmt(d.target)}", "TARGET  ${fmt(d.target)}"),
+                    Lf("HEDEF  {0}", "TARGET  {0}", fmt(d.target)),
                     style = labelStyle(onAmber.copy(alpha = 0.78f)).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.padding(start = 2.dp),
                 )
@@ -357,7 +360,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
             )
             if (d.laps > 0) {
                 Text(
-                    L("${d.laps}. TUR", "ROUND ${d.laps}"),
+                    Lf("{0}. TUR", "ROUND {0}", d.laps),
                     style = labelStyle(p.onGold).copy(fontWeight = FontWeight.Bold, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.align(Alignment.Center).offset(y = side * 0.19f - lift)
                         .clip(RoundedCornerShape(50)).background(p.goldBrush).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -366,6 +369,9 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
         }
     }
 }
+
+/** Çekme izinin rengi (sıcak altın). */
+private val PULL_TRAIL = Color(0xFFF6D58C)
 
 // Kehribar yansıma renkleri: saf beyaz değil, sıcak krem (beyaz yansıma "sırıtmasın")
 private val WARM_SHEEN = Color(0xFFFFE7AE)
@@ -417,6 +423,22 @@ fun amberAt(t: Float): AmberTone {
 
 /** Kubbe üzerindeki yazı koyu kehribarda açık, açık kehribarda koyu olur. */
 fun amberIsDark(@Suppress("UNUSED_PARAMETER") t: Float): Boolean = false  // altın tonda koyu yazı her durumda okunur (≥ 5,8:1)
+
+private fun Color.darker(f: Float) = Color(red * (1 - f), green * (1 - f), blue * (1 - f), alpha)
+
+/** Kubbe tonu: kehribarda okra → bal; diğer malzemelerde kendi renginden biraz koyusuna. */
+fun domeTone(m: BeadMat, t: Float): AmberTone {
+    if (m.name == "Kehribar") return amberAt(t)
+    val x = t.coerceIn(0f, 1f)
+    return AmberTone(
+        light = lerp(m.light, m.base, 0.45f * x),
+        base = lerp(m.base, m.base.darker(0.30f), x),
+        edge = lerp(m.edge, m.edge.darker(0.30f), x),
+    )
+}
+
+/** Oltu (siyah) ve kristal (koyu zeminde saydam) kubbede rakam açık renk olur. */
+fun domeNeedsLightText(m: BeadMat): Boolean = m.name == "Oltu" || m.name == "Kristal"
 
 /** Çektikçe değişen renk: gece mavisi → menekşe → gül → kehribar → altın. */
 private fun phase(p: Pal, t: Float): Color {
@@ -527,7 +549,7 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(WARM_SPEC.copy(alpha = 0.85f * m.spec), r * 0.065f, spt)
 }
 
-private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pull: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
     val k = size.width / 380.dp.toPx()
     val gapDeg = 30f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / 33f
@@ -551,13 +573,15 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         radius = rB * 1.22f, center = c,
     )
 
-    // ── Kehribar kubbe: sayı arttıkça bal renginden konyak tonuna koyulaşır ──
-    val am = amberAt(prog)
+    // ── Kubbe, seçilen tespih malzemesinin renginde; sayı arttıkça koyulaşır ──
+    val am = domeTone(m, prog)
     val sh = Offset(c.x, c.y + rDisc * 0.10f)
     drawCircle(
         Brush.radialGradient(listOf(Color.Black.copy(alpha = if (p.dark) 0.50f else 0.20f), Color.Transparent), center = sh, radius = rDisc * 1.14f),
         radius = rDisc * 1.14f, center = sh,
     )
+    // Yarı saydam malzemede (kristal) arka zemin görünmesin diye altına koyu bir taban
+    if (am.base.alpha < 1f) drawCircle(p.dome2, rDisc, c)
     // gövde
     drawCircle(
         Brush.radialGradient(
@@ -569,7 +593,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     // doğal bulutlanma (sıkma kehribar dokusu)
     for ((ox, oy, rr, light) in AMBER_CLOUDS) {
         val q = Offset(c.x + ox * rDisc, c.y + oy * rDisc)
-        val col = if (light) am.light.copy(alpha = 0.22f) else Color(0xFFA0702A).copy(alpha = 0.16f)
+        val col = if (light) m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.22f) else m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.16f)
         drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), center = q, radius = rr * rDisc), rr * rDisc, q)
     }
     // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
@@ -607,7 +631,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawCircle(Color.White, stroke * 0.85f, head)
     }
     // Kubbede beyaz yansıma yok; yalnızca berrak kehribar damlaları ve alttan gelen sıcak ışık
-    clipPath(Path().apply { addOval(Rect(c, rDisc)) }) {
+    if (m.name == "Kehribar") clipPath(Path().apply { addOval(Rect(c, rDisc)) }) {
         drawAmberDrop(c.x - rDisc * 0.50f, c.y + rDisc * 0.45f, rDisc * 0.42f, 20f)
         drawAmberDrop(c.x + rDisc * 0.52f, c.y - rDisc * 0.40f, rDisc * 0.34f, 75f)
     }
@@ -627,7 +651,8 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         val a = (edgeDist / 0.5f).coerceIn(0f, 1f)
         alphas[i] = a
         if (a <= 0.01f) continue
-        val ang = 90f + gapDeg / 2f + v * seg
+        // Saat yönünün tersine dizilir: üstte taneler sağdan sola akar (başparmakla çekiş yönü)
+        val ang = 90f - gapDeg / 2f - v * seg
         beadsAt.add(i to polar(rB, ang))
     }
     // Taneler önbellekteki görüntülerden çizilir (her karede yeniden fırça oluşturulmaz)
@@ -645,6 +670,19 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
             val g = phase(p, (u + 0.5f) / 33f)
             drawCircle(Brush.radialGradient(listOf(g.copy(alpha = 0.55f * a), Color.Transparent), center = q, radius = r * 1.75f), r * 1.75f, q)
         }
+        // Çekilen tane: üstteki tanenin arkasında (sağında) kısa, solan bir iz
+        if (pull > 0.02f && !reduce) {
+            val ang = 90f - gapDeg / 2f - (u + 0.5f) * seg
+            val fromTop = abs((((ang + 90f) % 360f) + 540f) % 360f - 180f)
+            if (fromTop < seg * 1.5f) {
+                val near = 1f - fromTop / (seg * 1.5f)
+                for (k in 1..4) {
+                    val tq = polar(rB, ang + k * seg * 0.28f * pull)
+                    drawCircle(PULL_TRAIL.copy(alpha = (0.26f - 0.055f * k) * pull * near * a), r * (1f - 0.1f * k), tq)
+                }
+                drawCircle(Brush.radialGradient(listOf(PULL_TRAIL.copy(alpha = 0.35f * pull * near), Color.Transparent), center = q, radius = r * 1.6f), r * 1.6f, q)
+            }
+        }
         drawImage(sp.beads[(i * 5) % sp.beads.size], Offset(q.x - half, q.y - half), alpha = a)
         if (lit) drawCircle(phase(p, (u + 0.5f) / 33f).copy(alpha = 0.10f * a), r, q)
     }
@@ -653,7 +691,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         val u = (((b + pos) % 33f) + 33f) % 33f
         val edgeDist = minOf(u, 33f - u)
         if (edgeDist < 0.3f) continue
-        val ang = 90f + gapDeg / 2f + u * seg
+        val ang = 90f - gapDeg / 2f - u * seg
         val q = polar(rB, ang)
         rotate(ang, q) {
             val w = r * 0.42f
@@ -747,7 +785,7 @@ private fun ControlRow(st: AppState, d: Disp, sheet: (SheetKind) -> Unit) {
         GlyphButton(G.UNDO, L("Bir eksilt", "Undo one")) { st.undo() }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             if (d.vird == null) {
-                GoldChip(L("Hedef  ${fmt(d.target)}", "Target  ${fmt(d.target)}"), false, G.EDIT) { sheet(SheetKind.Target) }
+                GoldChip(Lf("Hedef  {0}", "Target  {0}", fmt(d.target)), false, G.EDIT) { sheet(SheetKind.Target) }
             } else {
                 GoldChip(L("Sonraki adım", "Next step"), false, G.SKIP) { st.skipStep() }
             }
@@ -765,8 +803,8 @@ private fun StatStrip(st: AppState) {
         Ornament(220.dp, 0.8f)
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Stat(if (goal > 0) L("BUGÜN · ${fmt(goal)}", "TODAY · ${fmt(goal)}") else L("BUGÜN", "TODAY"), fmt(today))
-            Stat(L("SERİ", "STREAK"), if (st.streak() == 1) L("1 gün", "1 day") else L("${st.streak()} gün", "${st.streak()} days"))
+            Stat(if (goal > 0) Lf("BUGÜN · {0}", "TODAY · {0}", fmt(goal)) else L("BUGÜN", "TODAY"), fmt(today))
+            Stat(L("SERİ", "STREAK"), if (st.streak() == 1) L("1 gün", "1 day") else Lf("{0} gün", "{0} days", st.streak()))
             Stat(L("TOPLAM", "TOTAL"), fmt(st.total))
         }
         if (goal > 0) {

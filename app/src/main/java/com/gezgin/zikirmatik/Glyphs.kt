@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -22,7 +25,10 @@ enum class G { LIST, PLUS, GRID, UNDO, RESET, CHART, FOCUS, GEAR, BOOK, BEADS, C
 
 @Composable
 fun Glyph(g: G, tint: Color, size: Dp = 22.dp, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(size)) {
+    // Yön bildiren ikonlar sağdan sola dillerde aynalanır
+    val mirror = LocalLayoutDirection.current == LayoutDirection.Rtl &&
+        g in setOf(G.LEFT, G.RIGHT, G.BACK, G.UNDO, G.SKIP, G.PLAY)
+    Canvas(modifier.size(size).graphicsLayer { if (mirror) scaleX = -1f }) {
         val s = this.size.minDimension / 24f
         val sw = 1.6f * s
         val st = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)

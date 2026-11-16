@@ -27,7 +27,7 @@ data class Session(val virdId: Long, val step: Int, val count: Int)
 data class Settings(
     val theme: Int = 0,            // 0 Safir, 1 Gece (OLED siyah), 2 Fildişi
     val bead: Int = 0,             // 0 Kehribar, 1 Oltu, 2 Sedef, 3 Kristal
-    val lang: Int = 0,             // 0 sistem, 1 Türkçe, 2 English
+    val lang: Int = 0,             // 0 sistem dili, 1.. LANGS sırası (tr, en, ar, ur, id, fr, de, ru)
     val haptic: Int = 2,           // 0 kapalı, 1 hafif, 2 normal, 3 güçlü
     val sound: Boolean = true,
     val soundType: Int = 0,        // 0 kehribar, 1 ahşap, 2 kristal
@@ -427,7 +427,7 @@ class Repo(ctx: Context) {
             Settings(
                 theme = o.optInt("theme", 0).coerceIn(0, 2),
                 bead = o.optInt("bead", 0).coerceIn(0, 3),
-                lang = o.optInt("lang", 0).coerceIn(0, 2),
+                lang = o.optInt("lang", 0).coerceIn(0, LANGS.size),
                 haptic = o.optInt("haptic", 2).coerceIn(0, 3),
                 // Ses özelliği yenilendi: eski kayıtlarda (soundType yok) varsayılan olarak aç
                 sound = if (o.has("soundType")) o.optBoolean("sound", true) else true,

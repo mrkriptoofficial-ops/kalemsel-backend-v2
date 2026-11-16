@@ -44,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -199,6 +201,8 @@ fun ZikirApp(act: MainActivity) {
             LocalPal provides pal,
             LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * st.settings.fontScale),
             LocalTextStyle provides TextStyle(fontFamily = Sans, color = pal.text),
+            // Arapça ve Urduca: arayüz sağdan sola
+            LocalLayoutDirection provides if (I18n.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
         ) {
             // Dil değişince tüm arayüz yeni dilde baştan çizilir
             key(lang) {

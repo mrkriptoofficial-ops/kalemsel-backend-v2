@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.gezgin.zikirmatik
 
 import android.app.Activity
@@ -133,7 +135,7 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
                             )
                         }
                         Text(
-                            L("${fmt(z.count)}  ·  hedef ${fmt(z.target)}", "${fmt(z.count)}  ·  target ${fmt(z.target)}"),
+                            Lf("{0}  ·  hedef {1}", "{0}  ·  target {1}", fmt(z.count), fmt(z.target)),
                             style = labelStyle(p.sub).copy(fontSize = 10.sp, letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES),
                         )
                     }
@@ -238,7 +240,7 @@ fun TesbihatScreen(st: AppState, back: () -> Unit, sheet: (SheetKind) -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(v.name, style = TextStyle(fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = p.text))
-                            Text(L("${v.steps.size} adım · ${fmt(v.total)} zikir", "${v.steps.size} steps · ${fmt(v.total)} dhikr"), style = labelStyle(p.sub).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
+                            Text(Lf("{0} adım · {1} zikir", "{0} steps · {1} dhikr", v.steps.size, fmt(v.total)), style = labelStyle(p.sub).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
                         }
                         GlyphButton(G.EDIT, L("Düzenle", "Edit"), 40.dp, bordered = false) { sheet(SheetKind.VirdEdit(v)) }
                         GlyphButton(G.TRASH, L("Sil", "Delete"), 40.dp, bordered = false) { st.deleteVird(v) }
@@ -294,10 +296,10 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
                     Column(Modifier.weight(1f)) {
                         Text(L("GÜNLÜK SERİ", "DAILY STREAK"), style = labelStyle(p.sub))
                         Text(
-                            L("${st.streak()} gün", "${st.streak()} days"),
+                            Lf("{0} gün", "{0} days", st.streak()),
                             style = TextStyle(brush = p.numberBrush, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, fontFeatureSettings = NUM_FEATURES),
                         )
-                        Text(L("En uzun seri: ${st.bestStreak} gün", "Longest streak: ${st.bestStreak} days"), style = bodyStyle(p.sub).copy(fontSize = 13.sp))
+                        Text(Lf("En uzun seri: {0} gün", "Longest streak: {0} days", st.bestStreak), style = bodyStyle(p.sub).copy(fontSize = 13.sp))
                     }
                 }
             }
@@ -308,7 +310,7 @@ fun StatsScreen(st: AppState, back: () -> Unit) {
                 Column(Modifier.fillMaxWidth().glass(p, RoundedCornerShape(24.dp)).padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(L("TAMAMLANAN TURLAR", "COMPLETED ROUNDS"), style = labelStyle(p.sub), modifier = Modifier.weight(1f))
-                        Text(L("Toplam ${fmt(st.lapsTotal())}", "Total ${fmt(st.lapsTotal())}"), style = labelStyle(p.goldText).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
+                        Text(Lf("Toplam {0}", "Total {0}", fmt(st.lapsTotal())), style = labelStyle(p.goldText).copy(letterSpacing = 1.sp, fontFeatureSettings = NUM_FEATURES))
                     }
                     Spacer(Modifier.height(10.dp))
                     if (today.isEmpty()) {
@@ -404,7 +406,7 @@ private fun WeekBars(st: AppState) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        (if (I18n.en) DAYS_EN else DAYS_TR)[d.dayOfWeek.value - 1],
+                        dayShort(d.dayOfWeek.value),
                         style = TextStyle(fontFamily = Sans, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, fontSize = 11.sp, color = if (isToday) p.text else p.sub),
                     )
                 }
@@ -413,12 +415,10 @@ private fun WeekBars(st: AppState) {
     }
 }
 
-private val DAYS_TR = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
-private val DAYS_EN = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 private fun compact(v: Int): String = when {
     v >= 10_000 -> "${v / 1000}" + L("B", "K")
-    v >= 1_000 -> String.format(I18n.locale, "%.1f", v / 1000f) + L("B", "K")
+    v >= 1_000 -> String.format(I18n.numLocale, "%.1f", v / 1000f) + L("B", "K")
     else -> "$v"
 }
 
@@ -433,7 +433,7 @@ private fun Heatmap(st: AppState) {
         Text(L("TAKVİM", "CALENDAR"), style = labelStyle(p.sub))
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf(L("Pt", "Mo"), L("Sa", "Tu"), L("Ça", "We"), L("Pe", "Th"), L("Cu", "Fr"), L("Ct", L("Sa", "Tu")), L("Pz", "Su")).forEach {
+            dayHeaders().forEach {
                 Text(it, style = labelStyle(p.sub).copy(letterSpacing = 0.sp), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             }
         }
@@ -485,10 +485,9 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                 Spacer(Modifier.height(14.dp))
                 Text(L("Dil", "Language"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(L("Sistem", "System") to 0, "Türkçe" to 1, "English" to 2).forEach { (t, v) ->
-                        GoldChip(t, s.lang == v) { st.update { it.copy(lang = v) } }
-                    }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GoldChip(L("Sistem", "System"), s.lang == 0) { st.update { it.copy(lang = 0) } }
+                    LANGS.forEachIndexed { i, lg -> GoldChip(lg.native, s.lang == i + 1) { st.update { it.copy(lang = i + 1) } } }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(L("Yazı boyutu", "Text size"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
@@ -583,7 +582,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 3.0\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.0\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 3.1\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.1\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
@@ -627,7 +626,7 @@ private fun ThemeSwatch(pal: Pal, selected: Boolean, modifier: Modifier, onClick
             .background(Brush.verticalGradient(listOf(pal.bgTop, pal.bgBottom)))
             .border(if (selected) 2.dp else 1.dp, if (selected) p.gold else p.hair, shape)
             .clickable(role = Role.RadioButton, onClick = onClick)
-            .semantics { contentDescription = L("${pal.name} teması", "${nameL(pal.name)} theme") }
+            .semantics { contentDescription = Lf("{0} teması", "{0} theme", nameL(pal.name)) }
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -676,7 +675,7 @@ fun FocusScreen(st: AppState, exit: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier.fillMaxSize().background(Color.Black)
-            .semantics { contentDescription = L("Odak modu. ${d.okunus}. ${d.shown}, hedef ${d.target}. Saymak için dokunun.", "Focus mode. ${d.okunus}. ${d.shown} of ${d.target}. Tap to count.") }
+            .semantics { contentDescription = Lf("Odak modu. {0}. {1}, hedef {2}. Saymak için dokunun.", "Focus mode. {0}. {1} of {2}. Tap to count.", d.okunus, d.shown, d.target) }
             .clickable(interactionSource = interaction, indication = null) { st.tap() },
         contentAlignment = Alignment.Center,
     ) {
@@ -694,7 +693,7 @@ fun FocusScreen(st: AppState, exit: () -> Unit) {
                 Box(Modifier.fillMaxWidth(d.progress).fillMaxHeight().background(GECE.goldBrush))
             }
             Spacer(Modifier.height(10.dp))
-            Text(L("HEDEF ${fmt(d.target)}", "TARGET ${fmt(d.target)}"), style = labelStyle(GECE.sub.copy(alpha = 0.75f)).copy(fontFeatureSettings = NUM_FEATURES))
+            Text(Lf("HEDEF {0}", "TARGET {0}", fmt(d.target)), style = labelStyle(GECE.sub.copy(alpha = 0.75f)).copy(fontFeatureSettings = NUM_FEATURES))
         }
         Box(Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(16.dp)) {
             CompositionLocalProvider(LocalPal provides GECE) {
