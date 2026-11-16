@@ -29,7 +29,9 @@ data class Settings(
     val bead: Int = 0,             // 0 Kehribar, 1 Oltu, 2 Sedef, 3 Kristal
     val lang: Int = 0,             // 0 sistem, 1 Türkçe, 2 English
     val haptic: Int = 2,           // 0 kapalı, 1 hafif, 2 normal, 3 güçlü
-    val sound: Boolean = false,
+    val sound: Boolean = true,
+    val soundType: Int = 0,        // 0 kehribar, 1 ahşap, 2 kristal
+    val soundVol: Int = 1,         // 0 düşük, 1 orta, 2 yüksek
     val volumeKeys: Boolean = true,
     val stopAtTarget: Boolean = false,
     val guardMs: Int = 70,         // çift dokunma koruması
@@ -427,7 +429,10 @@ class Repo(ctx: Context) {
                 bead = o.optInt("bead", 0).coerceIn(0, 3),
                 lang = o.optInt("lang", 0).coerceIn(0, 2),
                 haptic = o.optInt("haptic", 2).coerceIn(0, 3),
-                sound = o.optBoolean("sound", false),
+                // Ses özelliği yenilendi: eski kayıtlarda (soundType yok) varsayılan olarak aç
+                sound = if (o.has("soundType")) o.optBoolean("sound", true) else true,
+                soundType = o.optInt("soundType", 0).coerceIn(0, 2),
+                soundVol = o.optInt("soundVol", 1).coerceIn(0, 2),
                 volumeKeys = o.optBoolean("volumeKeys", true),
                 stopAtTarget = o.optBoolean("stopAtTarget", false),
                 guardMs = o.optInt("guardMs", 70).coerceIn(0, 1000),
@@ -444,7 +449,7 @@ class Repo(ctx: Context) {
 
     fun saveSettings(s: Settings) {
         val o = JSONObject()
-            .put("theme", s.theme).put("bead", s.bead).put("lang", s.lang).put("haptic", s.haptic).put("sound", s.sound)
+            .put("theme", s.theme).put("bead", s.bead).put("lang", s.lang).put("haptic", s.haptic).put("sound", s.sound).put("soundType", s.soundType).put("soundVol", s.soundVol)
             .put("volumeKeys", s.volumeKeys).put("stopAtTarget", s.stopAtTarget)
             .put("guardMs", s.guardMs).put("fontScale", s.fontScale.toDouble())
             .put("milestone", s.milestone).put("dailyGoal", s.dailyGoal)

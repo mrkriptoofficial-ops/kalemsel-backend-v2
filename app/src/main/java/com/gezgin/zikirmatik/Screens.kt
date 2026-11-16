@@ -526,8 +526,31 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(L("Kapalı", "Off") to 0, L("Her 10", "Every 10") to 10, L("Her 33", "Every 33") to 33).forEach { (t, v) -> GoldChip(t, s.milestone == v) { st.update { it.copy(milestone = v) } } }
                 }
-                SettingRow(L("Tespih sesi", "Bead sound"), L("Her dokunuşta yumuşak bir tane sesi.", "A soft bead click on every tap.")) {
-                    LuxSwitch(s.sound) { v -> st.update { it.copy(sound = v) }; if (v) st.fb.click(true) }
+                SettingRow(
+                    L("Ses", "Sound"),
+                    L("Her dokunuşta tane sesi, ara sayılarda çift tık, hedefte yumuşak bir zil. Telefon sessizdeyken ses çıkmaz.", "A bead click on every tap, a double click at intervals, a soft chime at the target. Muted when the phone is on silent."),
+                ) {
+                    LuxSwitch(s.sound) { v -> st.update { it.copy(sound = v) }; if (v) st.fb.click(s.soundType, SOUND_VOLUMES[s.soundVol]) }
+                }
+                if (s.sound) {
+                    Text(L("Tane sesi", "Bead sound"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(L("Kehribar", "Amber"), L("Ahşap", "Wood"), L("Kristal", "Crystal")).forEachIndexed { i, t ->
+                            GoldChip(t, s.soundType == i) { st.update { it.copy(soundType = i) }; st.fb.click(i, SOUND_VOLUMES[s.soundVol]) }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(L("Ses seviyesi", "Volume"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(L("Düşük", "Low"), L("Orta", "Medium"), L("Yüksek", "High")).forEachIndexed { i, t ->
+                            GoldChip(t, s.soundVol == i) { st.update { it.copy(soundVol = i) }; st.fb.click(s.soundType, SOUND_VOLUMES[i]) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    GhostButton(L("Hedef zilini dinle", "Play target chime"), Modifier.fillMaxWidth(), G.BELL) { st.fb.chime(SOUND_VOLUMES[s.soundVol]) }
+                    Spacer(Modifier.height(4.dp))
                 }
             }
             item {
@@ -557,7 +580,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 2.7\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.7\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 2.8\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 2.8\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))

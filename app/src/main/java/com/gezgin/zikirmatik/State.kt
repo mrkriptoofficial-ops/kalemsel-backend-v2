@@ -40,6 +40,9 @@ data class Disp(
     val progress: Float get() = shown / target.toFloat()
 }
 
+/** Uygulama içi ses seviyeleri: düşük, orta, yüksek */
+val SOUND_VOLUMES = floatArrayOf(0.35f, 0.65f, 1f)
+
 class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, private val scope: CoroutineScope) {
     val zikirs = mutableStateListOf<Zikir>()
     var selId by mutableLongStateOf(1L)
@@ -155,7 +158,15 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     private fun soft(level: Int = 1) = fb.tap(if (settings.haptic == 0) 0 else level)
 
     private fun feedback(r: Engine.Tap.Counted) {
-        fb.click(settings.sound)   // ses, titreşimden daha geç algılanır: önce başlat
+        // Ses, titreşimden daha geç algılanır: önce başlat
+        if (settings.sound) {
+            val v = SOUND_VOLUMES[settings.soundVol.coerceIn(0, 2)]
+            when {
+                r.completed -> { fb.click(settings.soundType, v); fb.chime(v) }
+                r.milestone -> fb.doubleClick(settings.soundType, v)
+                else -> fb.click(settings.soundType, v)
+            }
+        }
         val h = settings.haptic
         when {
             r.completed -> fb.complete(h)

@@ -2,11 +2,14 @@ package com.gezgin.zikirmatik
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.SoundPool
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.os.Handler
+import android.os.Looper
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -31,9 +34,14 @@ class Feedback(ctx: Context) {
         VibrationEffect.Composition.PRIMITIVE_CLICK, VibrationEffect.Composition.PRIMITIVE_TICK,
     )
     private val rnd = java.util.Random()
+    private val main = Handler(Looper.getMainLooper())
+    private val audio = ctx.getSystemService(AudioManager::class.java)
+
+    /** Telefon sessiz ya da titreşim modundaysa (ör. camide) ses çıkarma. */
+    private fun silent(): Boolean = audio != null && audio.ringerMode != AudioManager.RINGER_MODE_NORMAL
     private var pool: SoundPool? = null
-    private var soundId = 0
-    @Volatile private var loaded = false
+    private val ids = IntArray(SOUNDS.size)
+    private val ready = BooleanArray(SOUNDS.size)
 
     private val tapFx: Array<VibrationEffect?> = arrayOf(
         null,
@@ -44,23 +52,21 @@ class Feedback(ctx: Context) {
 
     init {
         runCatching {
-            val f = File(ctx.cacheDir, "tane_v3.wav")
-            // Yarım yazılmış dosya kalmasın: önce geçici dosyaya yaz, sonra taşı
-            if (f.length() != 44L + 2880L * 2L) {
-                val tmp = File(ctx.cacheDir, "tane.tmp")
-                tmp.writeBytes(beadWav())
-                if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
-            }
+            // Medya ses kanalı: kullanıcı sistem medya sesiyle de, uygulama içi seviyeyle de ayarlayabilir
             val sp = SoundPool.Builder()
-                .setMaxStreams(4)
+                .setMaxStreams(6)
                 .setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_GAME)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                 ).build()
-            sp.setOnLoadCompleteListener { _, _, status -> loaded = status == 0 }
-            soundId = sp.load(f.path, 1)
+            sp.setOnLoadCompleteListener { _, id, status ->
+                val i = ids.indexOf(id)
+                if (i >= 0) ready[i] = status == 0
+            }
+            File(ctx.cacheDir, "tane_v3.wav").delete()   // eski sürümün tek sesi
+            SOUNDS.forEachIndexed { i, spec -> ids[i] = sp.load(ensureWav(ctx, spec).path, 1) }
             pool = sp
         }
     }
@@ -121,11 +127,25 @@ class Feedback(ctx: Context) {
         }
     }
 
-    /** Her vuruşta tonu ve sesi hafifçe değişen tane sesi (makine gibi tekrar etmesin). */
-    fun click(enabled: Boolean) {
-        if (!enabled || !loaded) return
-        val v = 0.45f + rnd.nextFloat() * 0.1f
-        pool?.play(soundId, v, v, 1, 0, 0.97f + rnd.nextFloat() * 0.06f)
+    /** Tane sesi (0 kehribar, 1 ahşap, 2 kristal); her vuruşta ton ve seviye hafifçe değişir, makine gibi tekrar etmez. */
+    fun click(type: Int, volume: Float) {
+        val i = type.coerceIn(0, 2)
+        if (!ready[i] || volume <= 0f || silent()) return
+        val v = volume * (0.9f + rnd.nextFloat() * 0.1f)
+        pool?.play(ids[i], v, v, 1, 0, 0.97f + rnd.nextFloat() * 0.06f)
+    }
+
+    /** Ara sayıda iki tanenin art arda çarpması. */
+    fun doubleClick(type: Int, volume: Float) {
+        click(type, volume)
+        main.postDelayed({ click(type, volume * 0.85f) }, 85)
+    }
+
+    /** Hedefe ulaşınca yumuşak, iki tonlu zil. */
+    fun chime(volume: Float) {
+        val i = SOUNDS.lastIndex
+        if (!ready[i] || volume <= 0f || silent()) return
+        pool?.play(ids[i], volume * 0.8f, volume * 0.8f, 2, 0, 1f)
     }
 
     fun release() {
@@ -134,35 +154,66 @@ class Feedback(ctx: Context) {
     }
 }
 
-/** Sert bir tespih tanesinin diğerine çarpması: uyumsuz rezonanslar + ikinci temas + kısa sürtünme gürültüsü. */
-private fun beadWav(): ByteArray {
-    val sr = 48000
-    val n = (sr * 0.060).toInt()
-    val rnd = java.util.Random(11)
-    val pcm = ShortArray(n)
-    val modes = arrayOf(
-        doubleArrayOf(2870.0, 260.0, 0.40),
-        doubleArrayOf(4410.0, 340.0, 0.22),
-        doubleArrayOf(6930.0, 520.0, 0.12),
-        doubleArrayOf(1630.0, 180.0, 0.16),
-    )
-    var lp = 0.0
-    for (i in 0 until n) {
-        val t = i / sr.toDouble()
-        var v = 0.0
-        for (m in modes) v += sin(2 * PI * m[0] * t) * exp(-t * m[1]) * m[2]
+// ───────────── Ses sentezi (kayıt dosyası yok; ilk açılışta üretilir, önbelleğe yazılır) ─────────────
+private class SndSpec(val name: String, val seconds: Double, val gen: (t: Double, rnd: java.util.Random, state: DoubleArray) -> Double)
+
+private const val SR = 48000
+
+private val SOUNDS = listOf(
+    // Kehribar: hafif ve sıcak; uyumsuz rezonanslar + ikinci temas + kısa sürtünme
+    SndSpec("kehribar", 0.060) { t, rnd, st ->
+        var v = sin(2 * PI * 2870 * t) * exp(-t * 260) * 0.40 + sin(2 * PI * 4410 * t) * exp(-t * 340) * 0.22 +
+            sin(2 * PI * 6930 * t) * exp(-t * 520) * 0.12 + sin(2 * PI * 1630 * t) * exp(-t * 180) * 0.16
         val t2 = t - 0.007
         if (t2 > 0) v += sin(2 * PI * 3150 * t2) * exp(-t2 * 300) * 0.14
-        lp += 0.35 * ((rnd.nextDouble() * 2 - 1) - lp)
-        v += lp * exp(-t * 900) * 0.35
+        st[0] += 0.35 * ((rnd.nextDouble() * 2 - 1) - st[0])
+        v + st[0] * exp(-t * 900) * 0.35
+    },
+    // Ahşap: daha tok ve alçak
+    SndSpec("ahsap", 0.075) { t, rnd, st ->
+        var v = sin(2 * PI * 1150 * t) * exp(-t * 95) * 0.45 + sin(2 * PI * 2380 * t) * exp(-t * 160) * 0.20 +
+            sin(2 * PI * 520 * t) * exp(-t * 60) * 0.22
+        val t2 = t - 0.006
+        if (t2 > 0) v += sin(2 * PI * 1320 * t2) * exp(-t2 * 120) * 0.12
+        st[0] += 0.25 * ((rnd.nextDouble() * 2 - 1) - st[0])
+        v + st[0] * exp(-t * 700) * 0.30
+    },
+    // Kristal: ince ve çınlayan
+    SndSpec("kristal", 0.30) { t, _, _ ->
+        sin(2 * PI * 3520 * t) * exp(-t * 18) * 0.30 + sin(2 * PI * 5280 * t) * exp(-t * 26) * 0.16 +
+            sin(2 * PI * 7040 * t) * exp(-t * 40) * 0.08 + sin(2 * PI * 4980 * t) * exp(-t * 300) * 0.20
+    },
+    // Hedef zili: yumuşak çan (inharmonik kısmi sesler), ardından beşli aralıkta ikinci nota
+    SndSpec("zil", 1.6) { t, _, _ ->
+        fun bell(f: Double, tt: Double): Double = if (tt < 0) 0.0 else
+            (sin(2 * PI * f * tt) * exp(-tt * 3.2) * 0.50 + sin(2 * PI * f * 2.0 * tt) * exp(-tt * 4.5) * 0.22 +
+                sin(2 * PI * f * 2.76 * tt) * exp(-tt * 6.0) * 0.14 + sin(2 * PI * f * 5.4 * tt) * exp(-tt * 9.0) * 0.06) *
+                (tt / 0.004).coerceAtMost(1.0)
+        bell(659.25, t) * 0.75 + bell(987.77, t - 0.13) * 0.55
+    },
+)
+
+/** Sesi önbelleğe yazar; yarım kalmış dosya kalmasın diye önce geçici dosyaya yazıp taşır. */
+private fun ensureWav(ctx: Context, spec: SndSpec): File {
+    val n = (SR * spec.seconds).toInt()
+    val f = File(ctx.cacheDir, "snd_${spec.name}_v4.wav")
+    if (f.length() == 44L + n * 2L) return f
+    val rnd = java.util.Random(11)
+    val st = DoubleArray(2)
+    val pcm = ShortArray(n)
+    for (i in 0 until n) {
+        val t = i / SR.toDouble()
         val env = (i / 24.0).coerceAtMost(1.0) * ((n - i) / 240.0).coerceAtMost(1.0)
-        pcm[i] = (tanh(v * 1.2) * env * 32767 * 0.8).toInt().toShort()
+        pcm[i] = (tanh(spec.gen(t, rnd, st) * 1.2) * env * 32767 * 0.8).toInt().toShort()
     }
     val b = ByteBuffer.allocate(44 + n * 2).order(ByteOrder.LITTLE_ENDIAN)
     b.put("RIFF".toByteArray()); b.putInt(36 + n * 2); b.put("WAVE".toByteArray())
     b.put("fmt ".toByteArray()); b.putInt(16); b.putShort(1.toShort()); b.putShort(1.toShort())
-    b.putInt(sr); b.putInt(sr * 2); b.putShort(2.toShort()); b.putShort(16.toShort())
+    b.putInt(SR); b.putInt(SR * 2); b.putShort(2.toShort()); b.putShort(16.toShort())
     b.put("data".toByteArray()); b.putInt(n * 2)
     pcm.forEach { b.putShort(it) }
-    return b.array()
+    val tmp = File(ctx.cacheDir, "snd.tmp")
+    tmp.writeBytes(b.array())
+    if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+    return f
 }
