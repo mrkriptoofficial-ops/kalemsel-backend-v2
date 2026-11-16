@@ -154,7 +154,8 @@ class Feedback(ctx: Context) {
         if (i >= 0 && ready[i] && volume > 0f && !silent()) {
             val v = (volume * 0.55f).coerceAtMost(1f)
             pool?.play(ids[i], v, v, 1, 0, 0.96f + rnd.nextFloat() * 0.08f)
-            main.postDelayed({ click(type, volume) }, 55)
+            // Çarpma sesi, tanenin 2'deki tanelere indiği ana denk gelir
+            main.postDelayed({ click(type, volume) }, PULL_MS.toLong())
         } else click(type, volume)
     }
 
@@ -165,10 +166,11 @@ class Feedback(ctx: Context) {
     }
 
     /** Hedefe ulaşınca yumuşak, iki tonlu zil. */
-    fun chime(volume: Float) {
+    fun chime(volume: Float, delayMs: Long = 0L) {
         val i = SOUNDS.lastIndex
         if (!ready[i] || volume <= 0f || silent()) return
-        pool?.play(ids[i], volume, volume, 2, 0, 1f)
+        if (delayMs > 0) main.postDelayed({ pool?.play(ids[i], volume, volume, 2, 0, 1f) }, delayMs)
+        else pool?.play(ids[i], volume, volume, 2, 0, 1f)
     }
 
     fun release() {
@@ -183,14 +185,22 @@ private class SndSpec(val name: String, val seconds: Double, val gen: (t: Double
 private const val SR = 48000
 
 private val SOUNDS = listOf(
-    // Kehribar: hafif ve sıcak; uyumsuz rezonanslar + ikinci temas + kısa sürtünme
-    SndSpec("kehribar", 0.060) { t, rnd, st ->
-        var v = sin(2 * PI * 2870 * t) * exp(-t * 260) * 0.40 + sin(2 * PI * 4410 * t) * exp(-t * 340) * 0.22 +
-            sin(2 * PI * 6930 * t) * exp(-t * 520) * 0.12 + sin(2 * PI * 1630 * t) * exp(-t * 180) * 0.16
-        val t2 = t - 0.007
-        if (t2 > 0) v += sin(2 * PI * 3150 * t2) * exp(-t2 * 300) * 0.14
-        st[0] += 0.35 * ((rnd.nextDouble() * 2 - 1) - st[0])
-        v + st[0] * exp(-t * 900) * 0.35
+    // Kehribar: hafif, organik reçine → cam gibi çınlamaz. Çok kısa, tok bir çarpma (düşük-orta frekanslı,
+    // hızla sönen rezonanslar + bant geçiren "çık" dokusu), ardından 2'deki tanelerin birbirine değdiği iki küçük takırtı.
+    SndSpec("kehribar", 0.075) { t, rnd, st ->
+        fun hit(tt: Double, amp: Double): Double = if (tt < 0) 0.0 else amp * (
+            sin(2 * PI * 1850 * tt) * exp(-tt * 420) * 0.55 +
+                sin(2 * PI * 2950 * tt) * exp(-tt * 600) * 0.30 +
+                sin(2 * PI * 4300 * tt) * exp(-tt * 950) * 0.12 +
+                sin(2 * PI * 900 * tt) * exp(-tt * 260) * 0.18
+            )
+        val v = hit(t, 1.0) + hit(t - 0.0095, 0.42) + hit(t - 0.0195, 0.20)
+        // bant geçiren gürültü: ~2–4 kHz "çık" dokusu, her temasta kısa patlama
+        st[0] += 0.55 * ((rnd.nextDouble() * 2 - 1) - st[0])
+        st[1] += 0.12 * (st[0] - st[1])
+        val band = st[0] - st[1]
+        fun burst(tt: Double, amp: Double) = if (tt < 0) 0.0 else exp(-tt * 750) * amp
+        v + band * (burst(t, 0.55) + burst(t - 0.0095, 0.22) + burst(t - 0.0195, 0.10))
     },
     // Ahşap: daha tok ve alçak
     SndSpec("ahsap", 0.075) { t, rnd, st ->
@@ -207,8 +217,8 @@ private val SOUNDS = listOf(
             sin(2 * PI * 7040 * t) * exp(-t * 40) * 0.08 + sin(2 * PI * 4980 * t) * exp(-t * 300) * 0.20
     },
     // Kayma: tane ipte kayarken çıkan kısa, yumuşak sürtünme (filtrelenmiş gürültü, frekansı yükselip alçalır)
-    SndSpec("kayma", 0.090) { t, rnd, st ->
-        val x = t / 0.090
+    SndSpec("kayma", 0.160) { t, rnd, st ->
+        val x = t / 0.160
         val env = sin(PI * x).let { it * it }
         val a = 0.06 + 0.30 * sin(PI * x)
         st[0] += a * ((rnd.nextDouble() * 2 - 1) - st[0])
@@ -228,7 +238,7 @@ private val SOUNDS = listOf(
 /** Sesi önbelleğe yazar; yarım kalmış dosya kalmasın diye önce geçici dosyaya yazıp taşır. */
 private fun ensureWav(ctx: Context, spec: SndSpec): File {
     val n = (SR * spec.seconds).toInt()
-    val f = File(ctx.cacheDir, "snd_${spec.name}_v6.wav")
+    val f = File(ctx.cacheDir, "snd_${spec.name}_v7.wav")
     if (f.length() == 44L + n * 2L) return f
     val rnd = java.util.Random(11)
     val st = DoubleArray(2)

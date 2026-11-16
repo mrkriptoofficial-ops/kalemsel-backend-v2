@@ -5,12 +5,14 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -283,7 +285,18 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     val rot = remember { Animatable(d.count.toFloat()) }
     LaunchedEffect(d.count, d.key) {
         val t = d.count.toFloat()
-        if (reduce || abs(t - rot.value) > 33f) rot.snapTo(t) else rot.animateTo(t, spring(dampingRatio = 0.62f, stiffness = 520f))
+        if (reduce || abs(t - rot.value) > 33f || t < rot.value - 0.001f) {
+            if (reduce || abs(t - rot.value) > 33f) rot.snapTo(t) else rot.animateTo(t, tween(180))   // geri alma: yumuşak geri dönüş
+        } else {
+            // Çekiş: tane yerçekimiyle hızlanarak düşer, 2'deki tanelere çarpıp hafifçe seker
+            rot.animateTo(t, keyframes {
+                durationMillis = PULL_MS + 150
+                t at PULL_MS using FastOutLinearInEasing
+                (t + 0.07f) at PULL_MS + 55 using LinearOutSlowInEasing
+                (t - 0.015f) at PULL_MS + 110
+                t at PULL_MS + 150
+            })
+        }
     }
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(pulseKey) {
@@ -321,7 +334,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, (d.count - rot.value).coerceIn(0f, 1f), pulse.value, burst.value, press, reduce) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, BEADS[bead.coerceIn(0, BEADS.lastIndex)], sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
@@ -372,6 +385,13 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
 
 /** Çekme izinin rengi (sıcak altın). */
 private val PULL_TRAIL = Color(0xFFF6D58C)
+
+/** 2'de biriken tane sayısı ve 1 ile 2 arasındaki ip boşluğu (tane cinsinden). */
+private const val CLUSTER = 3f
+private const val PULL_GAP = 2.2f
+
+/** Tanenin 1'den 2'ye düşüş süresi (ms); iniş sesi bu ana denk gelir. */
+const val PULL_MS = 170
 
 // Kehribar yansıma renkleri: saf beyaz değil, sıcak krem (beyaz yansıma "sırıtmasın")
 private val WARM_SHEEN = Color(0xFFFFE7AE)
@@ -549,10 +569,10 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(WARM_SPEC.copy(alpha = 0.85f * m.spec), r * 0.065f, spt)
 }
 
-private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pull: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
     val k = size.width / 380.dp.toPx()
     val gapDeg = 30f                                         // imamenin durduğu boşluk (altta)
-    val seg = (360f - gapDeg) / 33f
+    val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
     val f = PI.toFloat() * seg / 360f                        // tane yarıçapı / ip yarıçapı (birbirine değen taneler)
     val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f)  // taneler genişliği tam kullanır
     val r = rB * f
@@ -641,57 +661,72 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     // ── Tespih ipi ──
     drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
 
-    // ── Taneler ──
-    val beadsAt = ArrayList<Pair<Int, Offset>>(33)
-    val alphas = FloatArray(33)
-    for (i in 0 until 33) {
-        val u = (((i + pos) % 33f) + 33f) % 33f
-        val v = u + 0.5f
-        val edgeDist = minOf(v, 33f - v)
-        val a = (edgeDist / 0.5f).coerceIn(0f, 1f)
-        alphas[i] = a
+    // ── Taneler: gerçek tespih mekaniği ──
+    // İp üzerinde konum (v, tane biriminde, imamenin sağından saat yönünün tersine):
+    //   [0, K)        → 2: çekilip biriken taneler (imamenin sağında)
+    //   [K, K+G)      → ipte boş aralık; çekilen tane buradan düşer
+    //   [K+G, 33+G)   → 1'den başlayıp halkayı dolanan, sırasını bekleyen taneler
+    //   [33+G, Ltot)  → imamenin arkası; en alttaki tane buradan diğer tarafa geçer
+    val gapSlots = gapDeg / seg
+    val ltot = 33f + PULL_GAP + gapSlots
+    fun slotOf(j: Float): Float = when {
+        j < CLUSTER - 1 -> j + 0.5f
+        j < CLUSTER -> (CLUSTER - 0.5f) + (j - (CLUSTER - 1)) * (PULL_GAP + 1f)
+        j < 32f -> j + PULL_GAP + 0.5f
+        else -> 32f + PULL_GAP + 0.5f + (j - 32f) * (gapSlots + 1f)
+    }
+    fun angleOf(v: Float) = 90f - gapDeg / 2f - v * seg
+    fun jOf(id: Int) = (((id - pos) % 33f) + 33f) % 33f
+
+    class BeadAt(val id: Int, val j: Float, val v: Float, val q: Offset, val a: Float)
+    val beads = ArrayList<BeadAt>(33)
+    for (id in 0 until 33) {
+        val j = jOf(id)
+        val v = slotOf(j)
+        val vm = ((v % ltot) + ltot) % ltot
+        val a = if (vm > 33f + PULL_GAP) {
+            val dist = minOf(vm - (33f + PULL_GAP), ltot - vm)
+            1f - (dist / 0.8f).coerceIn(0f, 1f)          // imamenin arkasından geçerken gizlenir
+        } else 1f
         if (a <= 0.01f) continue
-        // Saat yönünün tersine dizilir: üstte taneler sağdan sola akar (başparmakla çekiş yönü)
-        val ang = 90f - gapDeg / 2f - v * seg
-        beadsAt.add(i to polar(rB, ang))
+        beads.add(BeadAt(id, j, v, polar(rB, angleOf(v)), a))
     }
     // Taneler önbellekteki görüntülerden çizilir (her karede yeniden fırça oluşturulmaz)
     val sp = sprites.get(m, r, this)
     val half = sp.size / 2f
-    for ((i, q) in beadsAt) {
-        drawImage(sp.shadow, Offset(q.x - half, q.y - half + r * 0.38f), alpha = alphas[i] * (if (p.dark) 1f else 0.45f))
+    for (b in beads) {
+        drawImage(sp.shadow, Offset(b.q.x - half, b.q.y - half + r * 0.38f), alpha = b.a * (if (p.dark) 1f else 0.45f))
     }
     val litUpTo = prog * 33f
-    for ((i, q) in beadsAt) {
-        val a = alphas[i]
-        val u = (((i + pos) % 33f) + 33f) % 33f
-        val lit = u + 0.5f <= litUpTo + 0.01f
+    for (b in beads) {
+        // Bu turda çekilmiş taneler (en son çekilen 2'de, öncekiler imamenin öbür yanına geçmiş) ilerleme renginde ışıldar
+        val recent = ((((CLUSTER - 1) - b.j) % 33f) + 33f) % 33f
+        val lit = recent + 0.5f <= litUpTo + 0.01f
         if (lit) {
-            val g = phase(p, (u + 0.5f) / 33f)
-            drawCircle(Brush.radialGradient(listOf(g.copy(alpha = 0.55f * a), Color.Transparent), center = q, radius = r * 1.75f), r * 1.75f, q)
+            val g = phase(p, (recent + 0.5f) / 33f)
+            drawCircle(Brush.radialGradient(listOf(g.copy(alpha = 0.50f * b.a), Color.Transparent), center = b.q, radius = r * 1.7f), r * 1.7f, b.q)
         }
-        // Çekilen tane: üstteki tanenin arkasında (sağında) kısa, solan bir iz
-        if (pull > 0.02f && !reduce) {
-            val ang = 90f - gapDeg / 2f - (u + 0.5f) * seg
-            val fromTop = abs((((ang + 90f) % 360f) + 540f) % 360f - 180f)
-            if (fromTop < seg * 1.5f) {
-                val near = 1f - fromTop / (seg * 1.5f)
-                for (k in 1..4) {
-                    val tq = polar(rB, ang + k * seg * 0.28f * pull)
-                    drawCircle(PULL_TRAIL.copy(alpha = (0.26f - 0.055f * k) * pull * near * a), r * (1f - 0.1f * k), tq)
-                }
-                drawCircle(Brush.radialGradient(listOf(PULL_TRAIL.copy(alpha = 0.35f * pull * near), Color.Transparent), center = q, radius = r * 1.6f), r * 1.6f, q)
+        // Düşen tane: arkasında hızla orantılı, solan bir iz; inerken (2'ye değerken) kısa bir parıltı
+        if (b.j > CLUSTER - 1 && b.j < CLUSTER && !reduce) {
+            val s = CLUSTER - b.j                                   // 0: 1'den kopuş, 1: 2'ye iniş
+            for (k in 1..3) {
+                val tq = polar(rB, angleOf(b.v + k * 0.32f * (0.4f + s)))
+                drawCircle(PULL_TRAIL.copy(alpha = (0.24f - 0.06f * k) * s), r * (1f - 0.1f * k), tq)
             }
         }
-        drawImage(sp.beads[(i * 5) % sp.beads.size], Offset(q.x - half, q.y - half), alpha = a)
-        if (lit) drawCircle(phase(p, (u + 0.5f) / 33f).copy(alpha = 0.10f * a), r, q)
+        if (b.j <= CLUSTER - 1 && b.j > CLUSTER - 1.25f && !reduce) {
+            val impact = 1f - (CLUSTER - 1 - b.j) / 0.25f
+            drawCircle(Brush.radialGradient(listOf(PULL_TRAIL.copy(alpha = 0.45f * impact), Color.Transparent), center = b.q, radius = r * 1.8f), r * 1.8f, b.q)
+        }
+        drawImage(sp.beads[(b.id * 5) % sp.beads.size], Offset(b.q.x - half, b.q.y - half), alpha = b.a)
+        if (lit) drawCircle(phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a), r, b.q)
     }
-    // ── Nişaneler: 11. ve 22. tanelerden sonra telkari ara parçalar ──
-    for (b in listOf(11, 22)) {
-        val u = (((b + pos) % 33f) + 33f) % 33f
-        val edgeDist = minOf(u, 33f - u)
-        if (edgeDist < 0.3f) continue
-        val ang = 90f - gapDeg / 2f - u * seg
+    // ── Nişaneler: 11. ve 22. tanelerden sonra telkari ara parçalar (taneyle birlikte hareket eder) ──
+    for (nb in listOf(10, 21)) {
+        val b0 = beads.firstOrNull { it.id == nb } ?: continue
+        val b1 = beads.firstOrNull { it.id == nb + 1 } ?: continue
+        if (abs(b1.v - b0.v) > 1.4f) continue                      // aralarında boşluk varsa (düşüş anı) çizme
+        val ang = angleOf((b0.v + b1.v) / 2f)
         val q = polar(rB, ang)
         rotate(ang, q) {
             val w = r * 0.42f
@@ -699,6 +734,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
             drawRoundRect(
                 metalBrush(m.silver, Offset(q.x - w, q.y - h), Offset(q.x + w, q.y + h)),
                 topLeft = Offset(q.x - w / 2, q.y - h / 2), size = Size(w, h), cornerRadius = CornerRadius(w * 0.3f),
+                alpha = minOf(b0.a, b1.a),
             )
             drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x - w * 0.15f, q.y - h * 0.35f), Offset(q.x - w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
             drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x + w * 0.15f, q.y - h * 0.35f), Offset(q.x + w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
