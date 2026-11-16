@@ -318,7 +318,7 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         // Kenar boşluklarına taşabilir (requiredSize); yükseklik imame ve püskül için %16 fazla
-        val side = minOf(maxWidth + 28.dp, maxHeight / DOME_H, 440.dp)
+        val side = minOf(maxWidth + 40.dp, maxHeight / DOME_H, 460.dp)
         val dens = LocalDensity.current
         val numSize = with(dens) { (side * (if (shown >= 1000) 0.18f else 0.25f)).toSp() }
         val lift = side * ((DOME_H - 1f) / 2f)   // kubbe merkezi, kutunun merkezinden bu kadar yukarıda
@@ -383,12 +383,17 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
     }
 }
 
+/** Bükümlü ipek tespih ipi renkleri. */
+private val CORD_DARK = Color(0xFF5B3518)
+private val CORD_LIGHT = Color(0xFFA9773E)
+private val CORD_SHINE = Color(0xFFE8C48A).copy(alpha = 0.75f)
+
 /** Çekme izinin rengi (sıcak altın). */
 private val PULL_TRAIL = Color(0xFFF6D58C)
 
 /** 2'de biriken tane sayısı ve 1 ile 2 arasındaki ip boşluğu (tane cinsinden). */
 private const val CLUSTER = 3f
-private const val PULL_GAP = 2.2f
+private const val PULL_GAP = 1.9f
 
 /** Tanenin 1'den 2'ye düşüş süresi (ms); iniş sesi bu ana denk gelir. */
 const val PULL_MS = 170
@@ -571,7 +576,7 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
 
 private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean) {
     val k = size.width / 380.dp.toPx()
-    val gapDeg = 30f                                         // imamenin durduğu boşluk (altta)
+    val gapDeg = 23f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
     val f = PI.toFloat() * seg / 360f                        // tane yarıçapı / ip yarıçapı (birbirine değen taneler)
     val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f)  // taneler genişliği tam kullanır
@@ -602,10 +607,10 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     )
     // Yarı saydam malzemede (kristal) arka zemin görünmesin diye altına koyu bir taban
     if (am.base.alpha < 1f) drawCircle(p.dome2, rDisc, c)
-    // gövde
+    // gövde: kristal gibi yarı saydam; merkez daha berrak, kenara doğru yoğunlaşır (camın kalınlığı)
     drawCircle(
         Brush.radialGradient(
-            0f to am.light, 0.55f to am.base, 1f to am.edge,
+            0f to am.light.copy(alpha = am.light.alpha * 0.80f), 0.55f to am.base.copy(alpha = am.base.alpha * 0.84f), 1f to am.edge.copy(alpha = am.edge.alpha * 0.95f),
             center = Offset(c.x - rDisc * 0.30f, c.y - rDisc * 0.36f), radius = rDisc * 1.5f,
         ),
         radius = rDisc, center = c,
@@ -613,7 +618,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     // doğal bulutlanma (sıkma kehribar dokusu)
     for ((ox, oy, rr, light) in AMBER_CLOUDS) {
         val q = Offset(c.x + ox * rDisc, c.y + oy * rDisc)
-        val col = if (light) m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.22f) else m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.16f)
+        val col = if (light) m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.14f) else m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.09f)
         drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), center = q, radius = rr * rDisc), rr * rDisc, q)
     }
     // içten gelen sıcak ışık (sağ alt) ve kenar koyulaşması
@@ -622,6 +627,32 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         radius = rDisc, center = c,
     )
     drawCircle(Brush.radialGradient(0.72f to Color.Transparent, 1f to am.edge.copy(alpha = 0.65f), center = c, radius = rDisc), rDisc, c)
+    // Kristal: kenarda ışık kırılması (fresnel) — iç kenar boyunca ince, aydınlık bir halka
+    val glass = if (m.name == "Kehribar") WARM_SPEC else Color.White
+    drawCircle(
+        Brush.radialGradient(0.86f to Color.Transparent, 0.965f to glass.copy(alpha = 0.30f), 1f to Color.Transparent, center = c, radius = rDisc),
+        rDisc, c,
+    )
+    // Alttan çıkan kostik: ışık camdan geçip alt kenarda toplanır
+    val caus = Offset(c.x + rDisc * 0.08f, c.y + rDisc * 0.70f)
+    drawOval(
+        Brush.radialGradient(listOf(am.light.copy(alpha = 0.55f), Color.Transparent), center = caus, radius = rDisc * 0.50f),
+        topLeft = Offset(caus.x - rDisc * 0.55f, caus.y - rDisc * 0.20f), size = Size(rDisc * 1.10f, rDisc * 0.40f),
+    )
+    // Sol üstte ince hilal yansıma (cam yüzeyi); büyük beyaz parlama yok
+    run {
+        val rr = rDisc * 0.90f
+        drawArc(
+            Brush.sweepGradient(
+                0f to Color.Transparent, 0.52f to Color.Transparent, 0.60f to glass.copy(alpha = 0.10f),
+                0.67f to glass.copy(alpha = 0.42f), 0.74f to glass.copy(alpha = 0.10f), 0.82f to Color.Transparent, 1f to Color.Transparent,
+                center = c,
+            ),
+            startAngle = 190f, sweepAngle = 95f, useCenter = false,
+            topLeft = Offset(c.x - rr, c.y - rr), size = Size(rr * 2, rr * 2),
+            style = Stroke(rDisc * 0.035f, cap = StrokeCap.Round),
+        )
+    }
     // ince altın çerçeve
     drawCircle(
         Brush.sweepGradient(listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight), center = c),
@@ -659,7 +690,23 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     drawCircle(Brush.radialGradient(listOf(am.light.copy(alpha = 0.10f), Color.Transparent), center = bounce, radius = rDisc * 0.42f), rDisc * 0.42f, bounce)
 
     // ── Tespih ipi ──
-    drawCircle(Color(0xFFB08A50).copy(alpha = 0.55f), rB, c, style = Stroke(1.1.dp.toPx() * k))
+    // Gerçek tespih ipi gibi: iki kat bükülmüş ipek; koyu gövde üstünde çapraz dönen iplik parlamaları
+    run {
+        val cw = 2.6.dp.toPx() * k
+        drawCircle(Color.Black.copy(alpha = 0.35f), rB, Offset(c.x, c.y + cw * 0.35f), style = Stroke(cw * 1.1f))
+        drawCircle(CORD_DARK, rB, c, style = Stroke(cw))
+        val n = (2f * PI.toFloat() * rB / (cw * 1.05f)).toInt()
+        val hl = cw * 0.52f
+        for (i in 0 until n) {
+            val ang = i * 360f / n
+            val q = polar(rB, ang)
+            val d = Math.toRadians((ang + 90f + 42f).toDouble())
+            val dx = cos(d).toFloat() * hl
+            val dy = sin(d).toFloat() * hl
+            drawLine(CORD_LIGHT, Offset(q.x - dx, q.y - dy), Offset(q.x + dx, q.y + dy), cw * 0.40f, cap = StrokeCap.Round)
+            drawLine(CORD_SHINE, Offset(q.x - dx * 0.35f, q.y - dy * 0.35f), Offset(q.x + dx * 0.15f, q.y + dy * 0.15f), cw * 0.16f, cap = StrokeCap.Round)
+        }
+    }
 
     // ── Taneler: gerçek tespih mekaniği ──
     // İp üzerinde konum (v, tane biriminde, imamenin sağından saat yönünün tersine):
@@ -721,26 +768,6 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         drawImage(sp.beads[(b.id * 5) % sp.beads.size], Offset(b.q.x - half, b.q.y - half), alpha = b.a)
         if (lit) drawCircle(phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a), r, b.q)
     }
-    // ── Nişaneler: 11. ve 22. tanelerden sonra telkari ara parçalar (taneyle birlikte hareket eder) ──
-    for (nb in listOf(10, 21)) {
-        val b0 = beads.firstOrNull { it.id == nb } ?: continue
-        val b1 = beads.firstOrNull { it.id == nb + 1 } ?: continue
-        if (abs(b1.v - b0.v) > 1.4f) continue                      // aralarında boşluk varsa (düşüş anı) çizme
-        val ang = angleOf((b0.v + b1.v) / 2f)
-        val q = polar(rB, ang)
-        rotate(ang, q) {
-            val w = r * 0.42f
-            val h = r * 0.95f
-            drawRoundRect(
-                metalBrush(m.silver, Offset(q.x - w, q.y - h), Offset(q.x + w, q.y + h)),
-                topLeft = Offset(q.x - w / 2, q.y - h / 2), size = Size(w, h), cornerRadius = CornerRadius(w * 0.3f),
-                alpha = minOf(b0.a, b1.a),
-            )
-            drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x - w * 0.15f, q.y - h * 0.35f), Offset(q.x - w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
-            drawLine(Color.Black.copy(alpha = 0.35f), Offset(q.x + w * 0.15f, q.y - h * 0.35f), Offset(q.x + w * 0.15f, q.y + h * 0.35f), 0.7.dp.toPx() * k)
-        }
-    }
-
     // ── İmame: telkari başlık + uzun tane + telkari uç + halka + püskül ──
     val ir = minOf(r, 13.dp.toPx() * k)
     val x0 = c.x
