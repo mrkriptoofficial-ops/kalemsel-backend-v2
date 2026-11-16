@@ -12,8 +12,8 @@ android {
         applicationId = "com.gezgin.zikirmatik"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "2.8"
+        versionCode = 14
+        versionName = "2.9"
     }
 
     signingConfigs {

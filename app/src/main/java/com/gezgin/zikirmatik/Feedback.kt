@@ -17,6 +17,7 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.tanh
+import kotlin.math.abs
 
 fun Context.systemVibrator(): Vibrator =
     if (Build.VERSION.SDK_INT >= 31) {
@@ -131,21 +132,21 @@ class Feedback(ctx: Context) {
     fun click(type: Int, volume: Float) {
         val i = type.coerceIn(0, 2)
         if (!ready[i] || volume <= 0f || silent()) return
-        val v = volume * (0.9f + rnd.nextFloat() * 0.1f)
+        val v = (volume * (0.93f + rnd.nextFloat() * 0.07f)).coerceAtMost(1f)
         pool?.play(ids[i], v, v, 1, 0, 0.97f + rnd.nextFloat() * 0.06f)
     }
 
     /** Ara sayıda iki tanenin art arda çarpması. */
     fun doubleClick(type: Int, volume: Float) {
         click(type, volume)
-        main.postDelayed({ click(type, volume * 0.85f) }, 85)
+        main.postDelayed({ click(type, volume * 0.9f) }, 85)
     }
 
     /** Hedefe ulaşınca yumuşak, iki tonlu zil. */
     fun chime(volume: Float) {
         val i = SOUNDS.lastIndex
         if (!ready[i] || volume <= 0f || silent()) return
-        pool?.play(ids[i], volume * 0.8f, volume * 0.8f, 2, 0, 1f)
+        pool?.play(ids[i], volume, volume, 2, 0, 1f)
     }
 
     fun release() {
@@ -196,16 +197,21 @@ private val SOUNDS = listOf(
 /** Sesi önbelleğe yazar; yarım kalmış dosya kalmasın diye önce geçici dosyaya yazıp taşır. */
 private fun ensureWav(ctx: Context, spec: SndSpec): File {
     val n = (SR * spec.seconds).toInt()
-    val f = File(ctx.cacheDir, "snd_${spec.name}_v4.wav")
+    val f = File(ctx.cacheDir, "snd_${spec.name}_v5.wav")
     if (f.length() == 44L + n * 2L) return f
     val rnd = java.util.Random(11)
     val st = DoubleArray(2)
-    val pcm = ShortArray(n)
+    // Hafif sıkıştırma (tanh) ile algılanan yükseklik artar; sonra tepe seviyesi %97'ye normalize edilir
+    val raw = DoubleArray(n)
+    var peak = 1e-9
     for (i in 0 until n) {
         val t = i / SR.toDouble()
         val env = (i / 24.0).coerceAtMost(1.0) * ((n - i) / 240.0).coerceAtMost(1.0)
-        pcm[i] = (tanh(spec.gen(t, rnd, st) * 1.2) * env * 32767 * 0.8).toInt().toShort()
+        raw[i] = tanh(spec.gen(t, rnd, st) * 1.8) * env
+        if (abs(raw[i]) > peak) peak = abs(raw[i])
     }
+    val gain = 0.97 / peak
+    val pcm = ShortArray(n) { i -> (raw[i] * gain * 32767).toInt().coerceIn(-32767, 32767).toShort() }
     val b = ByteBuffer.allocate(44 + n * 2).order(ByteOrder.LITTLE_ENDIAN)
     b.put("RIFF".toByteArray()); b.putInt(36 + n * 2); b.put("WAVE".toByteArray())
     b.put("fmt ".toByteArray()); b.putInt(16); b.putShort(1.toShort()); b.putShort(1.toShort())

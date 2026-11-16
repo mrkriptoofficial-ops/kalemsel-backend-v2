@@ -41,7 +41,7 @@ data class Disp(
 }
 
 /** Uygulama içi ses seviyeleri: düşük, orta, yüksek */
-val SOUND_VOLUMES = floatArrayOf(0.35f, 0.65f, 1f)
+val SOUND_VOLUMES = floatArrayOf(0.55f, 0.8f, 1f)
 
 class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, private val scope: CoroutineScope) {
     val zikirs = mutableStateListOf<Zikir>()
