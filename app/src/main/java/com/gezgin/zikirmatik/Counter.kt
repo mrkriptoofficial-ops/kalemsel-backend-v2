@@ -406,6 +406,8 @@ private val CORD_SHINE = Color(0xFFE8C48A).copy(alpha = 0.75f)
 private val PULL_TRAIL = Color(0xFFF6D58C)
 
 /** 2'de biriken tane sayısı ve 1 ile 2 arasındaki ip boşluğu (tane cinsinden). */
+/** Tane boyutu çarpanı (1 = birbirine yalnızca değen taneler). */
+private const val BEAD_SCALE = 1.28f
 private const val CLUSTER = 3f
 private const val PULL_GAP = 1.9f
 
@@ -593,10 +595,11 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     val gapDeg = 23f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
     val f = PI.toFloat() * seg / 360f                        // tane yarıçapı / ip yarıçapı (birbirine değen taneler)
-    val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f)  // taneler genişliği tam kullanır
-    val r = rB * f
+    // Taneler büyük: komşu taneler gerçek tespihteki gibi hafifçe üst üste biner, kubbe küçülür
+    val rB = (size.width / 2f - 3.dp.toPx() * k) / (1f + f * BEAD_SCALE)
+    val r = rB * f * BEAD_SCALE
     val c = Offset(size.width / 2f, size.width / 2f)         // üstte kare; alttaki fazlalık imame ve püskül için
-    val rDisc = rB - r - 7.dp.toPx() * k
+    val rDisc = rB - r - 12.dp.toPx() * k
     val rArc = rDisc - 13.dp.toPx() * k
     val stroke = 3.4.dp.toPx() * k
     val ph = phase(p, prog)
@@ -760,6 +763,11 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
             val impact = 1f - (CLUSTER - 1 - b.j) / 0.25f
             drawCircle(Brush.radialGradient(listOf(PULL_TRAIL.copy(alpha = 0.45f * impact), Color.Transparent), center = b.q, radius = r * 1.8f), r * 1.8f, b.q)
         }
+    }
+    // Üst üste binen taneler: aşağıdakiler öndedir (derinlik hissi)
+    for (b in beads.sortedBy { it.q.y }) {
+        val recent = ((((CLUSTER - 1) - b.j) % 33f) + 33f) % 33f
+        val lit = recent + 0.5f <= litUpTo + 0.01f
         drawImage(sp.beads[(b.id * 5) % sp.beads.size], Offset(b.q.x - half, b.q.y - half), alpha = b.a)
         if (lit) drawCircle(phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a), r, b.q)
     }
