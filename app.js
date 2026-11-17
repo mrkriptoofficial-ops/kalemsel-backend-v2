@@ -27,7 +27,7 @@ const defaults = () => ({
   selId: 1, total: 0, history: {}, laps: {},
   virds: DATA.virdler.map((v) => ({ id: v.id, name: v.name, steps: v.steps })),
   session: null,
-  settings: { bead: 0, sound: true, soundType: 0, vol: 1, haptic: true, stopAtTarget: false, milestone: 33, wake: true },
+  settings: { bead: 0, sound: true, soundType: 0, vol: 1, slide: false, haptic: true, stopAtTarget: false, milestone: 33, wake: true },
 });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch { S = defaults(); }
@@ -125,7 +125,7 @@ function soundOn() { return S.settings.sound; }
 function fbPull(milestone, completed) {
   if (!soundOn()) return;
   const v = VOLS[S.settings.vol] ?? 0.8, type = SOUND_TYPES[S.settings.soundType] || 'kehribar';
-  Audio.play('kayma', v * 0.55, 0, 0.96 + Math.random() * 0.08);
+  if (S.settings.slide) Audio.play('kayma', v * 0.55, 0, 0.96 + Math.random() * 0.08);
   Audio.play(type, v, PULL_MS / 1000, 0.96 + Math.random() * 0.08);
   if (milestone) Audio.play(type, v * 0.85, PULL_MS / 1000 + 0.09, 1.04);
   if (completed) Audio.play('zil', v, PULL_MS / 1000);
@@ -155,10 +155,25 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ───────────── Tespih malzemeleri ─────────────
 const BEADS = [
-  { name: 'Kehribar', base: hex('#D3922A'), light: hex('#E6AA45'), edge: hex('#955A10'), mL: hex('#E8B04C'), mD: hex('#A0702A'), spec: 0.85, silver: true },
+  { name: 'Kehribar', base: hex('#D3922A'), light: hex('#E6AA45'), edge: hex('#955A10'), mL: hex('#E8B04C'), mD: hex('#A0702A'), spec: 0.85, silver: true, pat: 'DROPS' },
   { name: 'Oltu', base: hex('#1C1915'), light: hex('#524940'), edge: hex('#040303'), mL: hex('#332C25'), mD: hex('#0A0908'), spec: 1, silver: true },
   { name: 'Sedef', base: hex('#E6DED3'), light: hex('#FFFFFF'), edge: hex('#A0928A'), mL: hex('#F7E3EE'), mD: hex('#D9E5F3'), spec: 0.8, silver: false },
   { name: 'Kristal', base: hex('#DCE6FF', 0.4), light: hex('#FFFFFF', 0.933), edge: hex('#5E7AB4', 0.8), mL: hex('#FFFFFF', 0.533), mD: hex('#A9BDF0', 0.333), spec: 1, silver: false },
+  { name: 'Akik', base: hex('#B5401F'), light: hex('#E0703F'), edge: hex('#6E1A0A'), mL: hex('#F09A6A'), mD: hex('#7A2210'), spec: 0.9, silver: true, pat: 'BANDS' },
+  { name: 'Kaplan Gözü', base: hex('#8A5A1C'), light: hex('#D49A3E'), edge: hex('#3E2408'), mL: hex('#F0C060'), mD: hex('#4A2C0C'), spec: 0.9, silver: true, pat: 'CHATOYANT' },
+  { name: 'Lapis', base: hex('#1F3A93'), light: hex('#3C62C8'), edge: hex('#0A1745'), mL: hex('#5577D8'), mD: hex('#0F1F5C'), spec: 0.8, silver: false, pat: 'FLECKS' },
+  { name: 'Turkuaz', base: hex('#3FB3B0'), light: hex('#7FD8D2'), edge: hex('#1E6F70'), mL: hex('#A5E8E0'), mD: hex('#2A8A88'), spec: 0.5, silver: true, pat: 'VEINS' },
+  { name: 'Ametist', base: hex('#7B3FA8', 0.88), light: hex('#C08BE8', 0.95), edge: hex('#3A1260'), mL: hex('#D9B2F5'), mD: hex('#4E1F7A'), spec: 1, silver: true },
+  { name: 'Pembe Kuvars', base: hex('#E8A9B8'), light: hex('#F8D3DC'), edge: hex('#B06A80'), mL: hex('#FFE6EC'), mD: hex('#C88596'), spec: 0.7, silver: false },
+  { name: 'Yeşim', base: hex('#3E8E5E'), light: hex('#74C08E'), edge: hex('#17462B'), mL: hex('#9AD8AE'), mD: hex('#245F3C'), spec: 0.7, silver: false },
+  { name: 'Malakit', base: hex('#1E7A4E'), light: hex('#3FAF77'), edge: hex('#08331F'), mL: hex('#5CCB92'), mD: hex('#0B4A2C'), spec: 0.8, silver: false, pat: 'BANDS' },
+  { name: 'Hematit', base: hex('#4A4D52'), light: hex('#9DA2AA'), edge: hex('#16171A'), mL: hex('#C0C5CC'), mD: hex('#222428'), spec: 1, silver: true },
+  { name: 'Obsidyen', base: hex('#121318'), light: hex('#3A3D48'), edge: hex('#000000'), mL: hex('#5A6070'), mD: hex('#050506'), spec: 1, silver: true },
+  { name: 'Oniks', base: hex('#2A2522'), light: hex('#6A625C'), edge: hex('#0A0807'), mL: hex('#D8D0C4'), mD: hex('#0A0807'), spec: 0.9, silver: true, pat: 'BANDS' },
+  { name: 'Ay Taşı', base: hex('#DDE3EE', 0.92), light: hex('#FFFFFF'), edge: hex('#8E9BB5'), mL: hex('#B9D2FF'), mD: hex('#C8CFDC'), spec: 0.9, silver: false, pat: 'SHEEN' },
+  { name: 'Mercan', base: hex('#D9483B'), light: hex('#F27C66'), edge: hex('#8A1E16'), mL: hex('#FF9E88'), mD: hex('#A0281E'), spec: 0.8, silver: false },
+  { name: 'Sitrin', base: hex('#E8B020', 0.88), light: hex('#FFE27A'), edge: hex('#9A6406'), mL: hex('#FFF0A8'), mD: hex('#B07A10'), spec: 1, silver: false },
+  { name: 'Yakut', base: hex('#9E1030', 0.92), light: hex('#E0405E'), edge: hex('#4A0414'), mL: hex('#FF7A90'), mD: hex('#5E0A1C'), spec: 1, silver: true },
 ];
 const WARM_SHEEN = hex('#FFE7AE'), WARM_HALO = hex('#FFE9BE'), WARM_SPEC = hex('#FFF1D2');
 const DROP_CORE = hex('#B06A0C'), DROP_EDGE = hex('#B8760F'), DROP_GLOW = hex('#F5BE52');
@@ -170,7 +185,7 @@ const PULL_TRAIL = hex('#F6D58C');
 const CORD_DARK = hex('#5B3518'), CORD_LIGHT = hex('#A9773E'), CORD_SHINE = hex('#E8C48A', 0.75);
 const GLASS_TINT = hex('#BFD3FF'), GLASS_EDGE = hex('#D6E4FF');
 const GOLD = hex('#D4AE62'), GOLD_L = hex('#F1D9A0'), GOLD_D = hex('#9C7838');
-const CLUSTER = 3, PULL_GAP = 1.9, GAP_DEG = 23, DOME_H = 1.16;
+const CLUSTER = 3, PULL_GAP = 1.5, GAP_DEG = 18, DOME_H = 1.16;
 
 function radial(ctx, x, y, R, stops) { const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(R, 0.01)); for (const [o, c] of stops) g.addColorStop(o, c); return g; }
 function circle(ctx, x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, Math.max(r, 0), 0, 2 * PI); ctx.fillStyle = fill; ctx.fill(); }
@@ -186,16 +201,52 @@ function drawAmberDrop(ctx, x, y, rr, angle) {
   circle(ctx, 0, 0, 1, radial(ctx, 0, 0, 1, [[0, rgba(DROP_GLOW, 0.28)], [1, rgba(DROP_GLOW, 0)]]));
   ctx.restore();
 }
+// Doğal taş desenleri (tane dairesine kırpılmış)
+function stonePattern(ctx, m, x, y, r, v) {
+  const R = rng(v * 7919 + m.name.length * 131 + m.name.charCodeAt(0));
+  switch (m.pat) {
+    case 'DROPS': BEAD_DROPS[v % BEAD_DROPS.length].forEach(([dx, dy, dr], k) => drawAmberDrop(ctx, x + dx * r, y + dy * r, dr * r, 20 + k * 55 + v * 30)); break;
+    case 'FLECKS':
+      for (let i = 0; i < 2; i++) radialDot(ctx, x + (R() - 0.5) * r * 1.4, y + (R() - 0.5) * r * 1.4, r * 0.35, hex('#DCE4F5'), 0.16);
+      for (let i = 0; i < 9; i++) circle(ctx, x + (R() - 0.5) * r * 1.7, y + (R() - 0.5) * r * 1.7, r * (0.03 + R() * 0.05), `rgba(233,199,102,${0.55 + R() * 0.4})`);
+      break;
+    case 'CHATOYANT': {
+      ctx.translate(x, y); ctx.rotate((-35 + v * 17) * PI / 180);
+      ctx.lineWidth = r * 0.05; ctx.strokeStyle = rgba(m.mD, 0.18);
+      for (let i = -7; i <= 7; i++) { ctx.beginPath(); ctx.moveTo(-r, i * r * 0.13); ctx.lineTo(r, i * r * 0.13); ctx.stroke(); }
+      const by = (R() - 0.5) * r * 0.5, g = ctx.createLinearGradient(0, by - r * 0.32, 0, by + r * 0.32);
+      g.addColorStop(0, rgba(m.mL, 0)); g.addColorStop(0.5, rgba(m.mL, 0.55)); g.addColorStop(1, rgba(m.mL, 0));
+      ctx.fillStyle = g; ctx.fillRect(-r, by - r * 0.32, 2 * r, r * 0.64); break;
+    }
+    case 'BANDS': {
+      const cx = x + (R() - 0.5) * r * 1.6, cy = y + (R() - 0.5) * r * 1.6, onyx = m.name === 'Oniks';
+      let rad = r * (0.15 + R() * 0.1), i = 0;
+      while (rad < r * 2.4) {
+        const a = onyx ? (i % 2 === 0 ? 0.55 : 0) : 0.30;
+        if (a > 0) { ctx.strokeStyle = rgba(i % 2 === 0 ? m.mL : m.mD, a); ctx.lineWidth = r * (onyx ? 0.035 : 0.07 + R() * 0.05); ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 2 * PI); ctx.stroke(); }
+        rad += r * (0.12 + R() * 0.12); i++;
+      }
+      break;
+    }
+    case 'VEINS':
+      ctx.strokeStyle = 'rgba(90,70,48,.45)'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let k = 0; k < 3; k++) {
+        let a = x + (R() - 0.5) * r * 2, b = y - r; ctx.beginPath(); ctx.moveTo(a, b);
+        while (b < y + r) { a += (R() - 0.5) * r * 0.5; b += r * (0.15 + R() * 0.2); ctx.lineTo(a, b); }
+        ctx.lineWidth = r * (0.03 + R() * 0.03); ctx.stroke();
+      }
+      break;
+    case 'SHEEN':
+      ctx.translate(x + r * 0.15, y - r * 0.05); ctx.scale(1, 0.8 / 1.4);
+      radialDot(ctx, 0, 0, r * 0.7, hex('#8FB8FF'), 0.55); break;
+  }
+}
 function drawBead(ctx, m, x, y, r, v) {
   circle(ctx, x, y, r, radial(ctx, x - r * 0.30, y - r * 0.36, r * 1.45, [[0, rgba(m.light)], [0.55, rgba(m.base)], [1, rgba(m.edge)]]));
   const h1 = ((v * 73 + 17) % 97) / 97, h2 = ((v * 41 + 59) % 89) / 89;
   radialDot(ctx, x + (h1 - 0.5) * r * 0.8, y + (h2 - 0.5) * r * 0.7, r * (0.35 + 0.2 * h2), m.mL, 0.55);
   radialDot(ctx, x + (h2 - 0.5) * r * 0.7, y + (0.5 - h1) * r * 0.8, r * (0.30 + 0.2 * h1), m.mD, 0.28);
-  if (m.name === 'Kehribar') {
-    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * PI); ctx.clip();
-    BEAD_DROPS[v % BEAD_DROPS.length].forEach(([dx, dy, dr], k) => drawAmberDrop(ctx, x + dx * r, y + dy * r, dr * r, 20 + k * 55 + v * 30));
-    ctx.restore();
-  }
+  if (m.pat) { ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * PI); ctx.clip(); stonePattern(ctx, m, x, y, r, v); ctx.restore(); }
   circle(ctx, x, y, r, radial(ctx, x, y, r, [[0.70, rgba(m.edge, 0)], [1, rgba(m.edge, 0.55)]]));
   radialDot(ctx, x + r * 0.12, y + r * 0.52, r * 0.45, m.light, 0.10);
   radialDot(ctx, x - r * 0.28, y - r * 0.34, r * 0.55, WARM_SHEEN, 0.10);
@@ -247,8 +298,8 @@ function drawDome(now) {
   const m = BEADS[S.settings.bead] || BEADS[0];
   const pos = anim.pos, prog = anim.prog, pulse = anim.pulse, burst = anim.burst, press = anim.press;
   const seg = (360 - GAP_DEG) / (33 + PULL_GAP), f = PI * seg / 360;
-  const rB = (W / 2 - 3 * k) / (1 + f), r = rB * f, cx = W / 2, cy = W / 2;
-  const rDisc = rB - r - 7 * k, rArc = rDisc - 13 * k, stroke = 3.4 * k;
+  const BS = 1.15, rB = (W / 2 - 3 * k) / (1 + f * BS), r = rB * f * BS, cx = W / 2, cy = W / 2;
+  const rDisc = rB - r - 16 * k, rArc = rDisc - 13 * k, stroke = 3.4 * k;
   const ph = phase(prog);
   const polar = (rad, deg) => { const a = deg * PI / 180; return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)]; };
 
@@ -342,6 +393,9 @@ function drawDome(now) {
       for (let q = 1; q <= 3; q++) { const [tx, ty] = polar(rB, angleOf(b.v + q * 0.32 * (0.4 + s))); circle(ctx, tx, ty, r * (1 - 0.1 * q), rgba(PULL_TRAIL, (0.24 - 0.06 * q) * s)); }
     }
     if (b.j <= CLUSTER - 1 && b.j > CLUSTER - 1.25 && !reduceMotion) radialDot(ctx, b.x, b.y, r * 1.8, PULL_TRAIL, 0.45 * (1 - (CLUSTER - 1 - b.j) / 0.25));
+  }
+  for (const b of [...beads].sort((p, q) => p.y - q.y)) {
+    const recent = ((((CLUSTER - 1) - b.j) % 33) + 33) % 33, lit = recent + 0.5 <= litUpTo + 0.01;
     ctx.globalAlpha = b.a; ctx.drawImage(sp.beads[(b.id * 5) % 6], b.x - half, b.y - half, sp.size, sp.size); ctx.globalAlpha = 1;
     if (lit) circle(ctx, b.x, b.y, r, rgba(phase((recent + 0.5) / 33), 0.10 * b.a));
   }
@@ -413,7 +467,7 @@ function layout() {
   box.style.width = W + 'px'; box.style.height = W * DOME_H + 'px';
   dome.width = Math.round(W * DPR); dome.height = Math.round(W * DOME_H * DPR);
   const seg = (360 - GAP_DEG) / (33 + PULL_GAP), f = PI * seg / 360, k = W / 380;
-  const rB = (W / 2 - 3 * k) / (1 + f), rDisc = rB - rB * f - 7 * k;
+  const rB = (W / 2 - 3 * k) / (1 + f * 1.15), rDisc = rB - rB * f * 1.15 - 16 * k;
   const hit = $('#hit'); hit.style.left = W / 2 - rB + 'px'; hit.style.top = W / 2 - rB + 'px'; hit.style.width = hit.style.height = rB * 2 + 'px';
   placeNum();
   $('#nTarget').style.fontSize = Math.max(11, W * 0.034) + 'px';
@@ -683,6 +737,7 @@ function settingsSheet() {
       ${sw('sound', 'Ses', 'Tane çekme ve iniş sesi')}
       ${seg('soundType', 'Ses türü', ['Kehribar', 'Ahşap', 'Kristal'])}
       ${seg('vol', 'Ses seviyesi', ['Düşük', 'Orta', 'Yüksek'])}
+      ${sw('slide', 'Sürtünme sesi', 'Tane ipte kayıp inmeden önce çıkan hafif hışırtı')}
       ${sw('haptic', 'Titreşim', ios ? 'iPhone’da iOS 18 ve sonrası; hafif dokunsal tık' : 'Her çekişte hafif titreşim')}
       <div class="sec">SAYAÇ</div>
       ${sw('stopAtTarget', 'Hedefte dur', 'Hedef dolunca saymayı durdurur')}
@@ -693,16 +748,16 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 3.6</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 3.9</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
       const x = c.getContext('2d'); x.scale(3, 3); x.fillStyle = '#0B1733'; x.fillRect(0, 0, 46, 46); drawBead(x, BEADS[i], 23, 23, 17, 0);
     });
-    $('#sheetBody').querySelectorAll('[data-bead]').forEach((b) => b.onclick = () => { st.bead = +b.dataset.bead; sprites.key = ''; save(); body(); kick(); drawDome(performance.now()); });
+    $('#sheetBody').querySelectorAll('[data-bead]').forEach((b) => b.onclick = () => { st.bead = +b.dataset.bead; if (st.bead >= BEADS.length) st.bead = 0; sprites.key = ''; save(); body(); kick(); drawDome(performance.now()); });
     $('#sheetBody').querySelectorAll('[data-sw]').forEach((b) => b.onclick = () => {
       const k = b.dataset.sw; st[k] = !st[k]; b.classList.toggle('on', st[k]); save();
-      if (k === 'sound' && st.sound) { Audio.unlock(); fbPull(false, false); }
+      if ((k === 'sound' && st.sound) || k === 'slide') { Audio.unlock(); fbPull(false, false); }
       if (k === 'haptic' && st.haptic) haptic('tap');
       if (k === 'wake') { if (st.wake) keepAwake(); else if (wakeLock) wakeLock.release(); }
       if (k === 'stopAtTarget') render();
