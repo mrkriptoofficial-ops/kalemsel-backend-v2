@@ -315,33 +315,10 @@ function drawDome(now) {
   // kubbenin yere düşen gölgesi
   const shy = cy + rDisc * 0.10;
   circle(ctx, cx, shy, rDisc * 1.14, radial(ctx, cx, shy, rDisc * 1.14, [[0.80, 'rgba(0,0,0,0)'], [0.92, 'rgba(0,0,0,.35)'], [1, 'rgba(0,0,0,0)']]));
-  // berrak cam gövde
-  {
-    const gx = cx - rDisc * 0.20, gy = cy - rDisc * 0.30, g = ctx.createRadialGradient(gx, gy, 0, gx, gy, rDisc * 1.4);
-    g.addColorStop(0, rgba(GLASS_TINT, 0.10)); g.addColorStop(0.80, rgba(GLASS_TINT, 0.06)); g.addColorStop(1, rgba(GLASS_EDGE, 0.24));
-    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, rDisc, 0, 2 * PI); ctx.clip(); ctx.fillStyle = g; ctx.fillRect(cx - rDisc, cy - rDisc, rDisc * 2, rDisc * 2);
-    // alttaki kostik
-    ctx.save(); ctx.translate(cx + rDisc * 0.04, cy + rDisc * 0.72); ctx.scale(1, 0.40 / 1.16);
-    circle(ctx, 0, 0, rDisc * 0.58, radial(ctx, 0, 0, rDisc * 0.58, [[0, rgba(GLASS_EDGE, 0.40)], [1, rgba(GLASS_EDGE, 0)]]));
-    ctx.restore(); ctx.restore();
-  }
-  // fresnel kenar
-  circle(ctx, cx, cy, rDisc, radial(ctx, cx, cy, rDisc, [[0.84, rgba(GLASS_EDGE, 0)], [0.965, rgba(GLASS_EDGE, 0.34)], [1, rgba(GLASS_EDGE, 0)]]));
-  // sol üst ince hilal yansıma
-  {
-    const rr = rDisc * 0.90;
-    ctx.save(); ctx.lineCap = 'round';
-    ctx.lineWidth = rDisc * 0.05; ctx.strokeStyle = rgba(GLASS_EDGE, 0.12); ctx.beginPath(); ctx.arc(cx, cy, rr, 200 * PI / 180, 262 * PI / 180); ctx.stroke();
-    ctx.lineWidth = rDisc * 0.013; ctx.strokeStyle = rgba(GLASS_EDGE, 0.50); ctx.beginPath(); ctx.arc(cx, cy, rr, 208 * PI / 180, 254 * PI / 180); ctx.stroke();
-    ctx.restore();
-  }
-  // ince altın çerçeve
-  {
-    let g;
-    if (ctx.createConicGradient) { g = ctx.createConicGradient(0, cx, cy); [[0, '#F1D9A0'], [0.2, '#FFFFFF'], [0.4, '#D4AE62'], [0.6, '#9C7838'], [0.8, 'rgba(255,255,255,.85)'], [1, '#F1D9A0']].forEach(([o, c]) => g.addColorStop(o, c)); }
-    else g = metal(ctx, false, cx - rDisc, cy - rDisc, cx + rDisc, cy + rDisc);
-    ctx.save(); ctx.globalAlpha = 0.85; ctx.lineWidth = 1.6 * k; ctx.strokeStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rDisc, 0, 2 * PI); ctx.stroke(); ctx.restore();
-  }
+  // sade koyu zemin; tesbihin rengi kenarlardan içeri hafifçe yansır
+  circle(ctx, cx, cy, rDisc, radial(ctx, cx, cy, rDisc, [[0, '#0E1A38'], [1, '#081127']]));
+  circle(ctx, cx, cy, rDisc, radial(ctx, cx, cy, rDisc, [[0.55, rgba(m.base, 0)], [1, rgba(m.light, 0.22)]]));
+  ctx.lineWidth = 1 * k; ctx.strokeStyle = rgba(m.light, 0.45); ctx.beginPath(); ctx.arc(cx, cy, rDisc, 0, 2 * PI); ctx.stroke();
   if (press > 0) circle(ctx, cx, cy, rDisc, `rgba(0,0,0,${0.12 * press})`);
   if (pulse < 1) circle(ctx, cx, cy, rDisc, radial(ctx, cx, cy, rDisc, [[0, `rgba(255,255,255,${(1 - pulse) * 0.20})`], [1, 'rgba(255,255,255,0)']]));
 
@@ -816,7 +793,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.0</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.1</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
