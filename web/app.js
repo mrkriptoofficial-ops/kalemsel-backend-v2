@@ -188,7 +188,7 @@ function phase(t) { const x = clamp(t, 0, 1) * 4, i = Math.min(Math.floor(x), 3)
 const PULL_TRAIL = hex('#F6D58C');
 // İp renkleri: [gövde, iplik, parlama] — kahve ipek, kırmızı ipek, siyah
 const CORDS = [[hex('#5B3518'), hex('#A9773E'), hex('#E8C48A', 0.75)], [hex('#7E0E16'), hex('#C9303A'), hex('#F08080', 0.70)], [hex('#111114'), hex('#3A3A40'), hex('#9A9AA4', 0.60)]];
-const OVAL = 0.72, OVAL_LEN = 0.86, BEAD_SCALE = 1.15;
+const OVAL = 0.72, OVAL_LEN = 1.0, BEAD_SCALE = 1.0;
 const GLASS_TINT = hex('#BFD3FF'), GLASS_EDGE = hex('#D6E4FF');
 const GOLD = hex('#D4AE62'), GOLD_L = hex('#F1D9A0'), GOLD_D = hex('#9C7838');
 const CLUSTER = 3, PULL_GAP = 1.5, GAP_DEG = 18, DOME_H = 1.16;
@@ -337,7 +337,7 @@ function drawDome(now) {
   const m = BEADS[S.settings.bead] || BEADS[0];
   const pos = anim.pos, prog = anim.prog, pulse = anim.pulse, burst = anim.burst, press = anim.press;
   const seg = (360 - GAP_DEG) / (33 + PULL_GAP), f = PI * seg / 360;
-  const BS = 1.15, rB = (W / 2 - 3 * k) / (1 + f * BS), r = rB * f * BS, cx = W / 2, cy = W / 2;
+  const BS = BEAD_SCALE, rB = (W / 2 - 3 * k) / (1 + f * BS), r = rB * f * BS, cx = W / 2, cy = W / 2;
   const rDisc = rB - r - 16 * k, rArc = rDisc - 13 * k, stroke = 3.4 * k;
   const ph = phase(prog);
   const polar = (rad, deg) => { const a = deg * PI / 180; return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)]; };
@@ -527,7 +527,7 @@ function layout() {
   box.style.width = W + 'px'; box.style.height = W * DOME_H + 'px';
   dome.width = Math.round(W * DPR); dome.height = Math.round(W * DOME_H * DPR);
   const seg = (360 - GAP_DEG) / (33 + PULL_GAP), f = PI * seg / 360, k = W / 380;
-  const rB = (W / 2 - 3 * k) / (1 + f * 1.15), rDisc = rB - rB * f * 1.15 - 16 * k;
+  const rB = (W / 2 - 3 * k) / (1 + f * BEAD_SCALE), rDisc = rB - rB * f * BEAD_SCALE - 16 * k;
   const hit = $('#hit'); hit.style.left = W / 2 - rB + 'px'; hit.style.top = W / 2 - rB + 'px'; hit.style.width = hit.style.height = rB * 2 + 'px';
   placeNum();
   $('#nTarget').style.fontSize = Math.max(11, W * 0.034) + 'px';
@@ -700,7 +700,7 @@ $('#scrim').onclick = closeSheet;
   sh.addEventListener('touchend', () => { if (y0 == null) return; sh.style.transition = ''; sh.style.transform = ''; if (dy > 90) closeSheet(); y0 = null; });
 })();
 
-const LIBS = [['mine', 'Zikirlerim'], ['vird', 'Tesbihat'], ['sunnet', 'Sünnet'], ['gunluk', 'Günlük'], ['salavat', 'Salavât'], ['esma', 'Esmâ']];
+const LIBS = [['mine', 'Zikirlerim'], ['vird', 'Tesbihat'], ['sunnet', 'Sünnet'], ['dualar', 'Dualar'], ['gunluk', 'Günlük'], ['salavat', 'Salavât'], ['esma', 'Esmâ']];
 function libSheet(tab = 'mine') { openSheet('Zikirler', LIBS, tab, libBody); }
 function libBody(tab) {
   const body = $('#sheetBody');
@@ -726,10 +726,11 @@ function libBody(tab) {
     return;
   }
   const items = DATA[tab];
-  body.innerHTML = (tab === 'sunnet' ? `<p class="note">Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler; kaynakları her maddede belirtilmiştir.</p>` : '') +
+  const note = tab === 'sunnet' ? "Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler; kaynakları her maddede belirtilmiştir." : tab === 'dualar' ? DATA.duaNote : tab === 'esma' ? DATA.esmaNote : '';
+  body.innerHTML = (note ? `<p class="note">${esc(note)}</p>` : '') +
     items.map((it, i) => {
       const have = S.list.some((z) => z.ar === it.ar && z.ok === it.zk);
-      return `<div class="row" data-i="${i}"><div class="tx"><div class="t0">${esc(it.ar)}</div><div class="t1">${esc(it.ok)}</div><div class="t2">${esc(it.an)}</div>${it.fz ? `<div class="t3">${esc(it.fz)}</div>` : ''}</div>
+      return `<div class="row" data-i="${i}"><div class="tx">${it.bs ? `<div class="t4">${esc(it.bs)}</div>` : ''}<div class="t0">${esc(it.ar)}</div><div class="t1">${esc(it.ok)}</div><div class="t2">${esc(it.an)}</div>${it.fz ? `<div class="t3">${esc(it.fz)}</div>` : ''}</div>
       <button class="ib" aria-label="Ekle">${have ? ICON.check : ICON.plus}</button></div>`;
     }).join('');
   body.querySelectorAll('.row').forEach((r) => r.onclick = () => {
@@ -811,7 +812,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.2</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.3</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
