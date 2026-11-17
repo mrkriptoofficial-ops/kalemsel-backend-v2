@@ -427,7 +427,21 @@ class BeadMat(
     val spec: Float,
     val silver: Boolean,
     val pattern: BeadPattern = BeadPattern.NONE,
+    val ovalTone: OvalTone? = null,
 )
+
+/** Oval (arpa) tanenin ışık tonları: ışığa bakan çekirdek → gövde → kenar → en koyu; içten geçen ışığın rengi. */
+class OvalTone(
+    val core: Color, val mid: Color, val edge: Color, val deep: Color, val glow: Color,
+    val spec: Float, val specW: Float, val translucent: Float,
+)
+
+/** Malzemenin oval tonu: tanımlıysa o, değilse kendi renklerinden türetilir. */
+val BeadMat.oval: OvalTone
+    get() = ovalTone ?: OvalTone(
+        light, base, edge, lerp(edge, Color.Black, 0.35f), mottleLight,
+        0.55f * spec, 0.16f, if (base.alpha < 1f) 0.8f else 0.4f,
+    )
 
 /** Doğal taşların yüzey deseni. */
 enum class BeadPattern { NONE, DROPS, FLECKS, CHATOYANT, BANDS, VEINS, SHEEN, GLOW }
@@ -443,7 +457,9 @@ private val CORDS = listOf(
 )
 
 /** Oval tanenin enine oranı (boyuna 1). */
-private const val OVAL = 0.80f
+private const val OVAL = 0.72f
+/** Oval tanenin yarı boyu, tane aralığının yarısına oranla (<1: aralarında ip görünür). */
+private const val OVAL_LEN = 0.86f
 
 val BEADS = listOf(
     // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari
@@ -482,9 +498,11 @@ val BEADS = listOf(
     // Yakut: derin kan kırmızısı
     BeadMat("Yakut", Color(0xEB9E1030), Color(0xFFE0405E), Color(0xFF4A0414), Color(0xFFFF7A90), Color(0xFF5E0A1C), 1f, true, BeadPattern.NONE),
     // Ateş (yumurta sarısı) kehribar: opak, parlak turuncu
-    BeadMat("Ateş Kehribar", Color(0xFFF08A14), Color(0xFFFFAE3A), Color(0xFFB05200), Color(0xFFFFC468), Color(0xFFCC6608), 0.95f, false),
+    BeadMat("Ateş Kehribar", Color(0xFFF9A02A), Color(0xFFFFC84E), Color(0xFFB05606), Color(0xFFFFD27A), Color(0xFFE07A10), 0.95f, false,
+        ovalTone = OvalTone(Color(0xFFFFC84E), Color(0xFFF9A02A), Color(0xFFE07A10), Color(0xFFB05606), Color(0xFFFFB347), 0.55f, 0.20f, 0.35f)),
     // Vişne kehribar: koyu kiraz kırmızısı, yarı saydam, içinden ışık geçer
-    BeadMat("Vişne Kehribar", Color(0xFF7A0C14), Color(0xFFA8202A), Color(0xFF3A0307), Color(0xFFE0503A), Color(0xFF4A0509), 1f, false, BeadPattern.GLOW),
+    BeadMat("Vişne Kehribar", Color(0xFF5A0912), Color(0xFF8E1A22), Color(0xFF220104), Color(0xFFC42A30), Color(0xFF320306), 1f, false, BeadPattern.GLOW,
+        OvalTone(Color(0xFF320306), Color(0xFF5A0912), Color(0xFF741019), Color(0xFF220104), Color(0xFFC42A30), 0.95f, 0.09f, 0.85f)),
 )
 
 /** Kubbe tuvalinin yükseklik/genişlik oranı (alttaki imame ve püskül için). */
@@ -691,6 +709,57 @@ private fun DrawScope.drawStonePattern(m: BeadMat, q: Offset, r: Float, variant:
     }
 }
 
+/**
+ * Gerçek oval (arpa) tane: uzun ekseni ip boyunca. Işık hep sol üstten gelir; yansımalar tanenin boyu boyunca uzanır,
+ * yarı saydam taşlarda ışık karşı kenardan sızar, ipin girdiği uçlar hafifçe kararır.
+ */
+private fun DrawScope.drawOvalBead(m: BeadMat, q: Offset, a: Float, angDeg: Float, variant: Int, alpha: Float, tint: Color?) {
+    val t = m.oval
+    val b = a * OVAL
+    val ang = Math.toRadians(angDeg.toDouble())
+    val lx = -0.55; val ly = -0.83
+    val llx = (lx * cos(-ang) - ly * sin(-ang)).toFloat()
+    val lly = (lx * sin(-ang) + ly * cos(-ang)).toFloat()
+    val layer = alpha < 0.99f
+    if (layer) drawContext.canvas.saveLayer(Rect(q.x - a * 1.4f, q.y - a * 1.4f, q.x + a * 1.4f, q.y + a * 1.4f), Paint().apply { this.alpha = alpha })
+    rotate(angDeg, q) {
+        clipPath(Path().apply { addOval(Rect(q.x - a, q.y - b, q.x + a, q.y + b)) }) {
+            withTransform({ scale(1f, OVAL, q) }) {
+                drawCircle(
+                    Brush.radialGradient(0f to t.core, 0.45f to t.mid, 0.85f to t.edge, 1f to t.deep, center = Offset(q.x + llx * a * 0.35f, q.y + lly * a * 0.35f), radius = a * 1.15f),
+                    a * 1.25f, q,
+                )
+                val gq = Offset(q.x - llx * a * 0.55f, q.y - lly * a * 0.55f)
+                drawCircle(Brush.radialGradient(listOf(t.glow.copy(alpha = 0.55f * t.translucent), Color.Transparent), center = gq, radius = a * 0.75f), a * 1.25f, q)
+                drawCircle(Brush.radialGradient(0.7f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.28f), center = q, radius = a), a, q)
+            }
+            for (sd in intArrayOf(-1, 1)) {
+                val e = Offset(q.x + sd * a, q.y)
+                drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.30f), Color.Transparent), center = e, radius = b * 0.9f), b * 0.9f, e)
+            }
+            if (m.pattern != BeadPattern.NONE && m.pattern != BeadPattern.GLOW) drawStonePattern(m, q, a, variant)
+            // ana yansıma: tanenin boyu boyunca uzanan pencere yansıması
+            val side = if (lly < 0f) -1f else 1f
+            val h = Offset(q.x + llx * a * 0.12f, q.y + side * b * 0.48f)
+            withTransform({ scale(1f, t.specW / 0.5f, h) }) {
+                drawCircle(
+                    Brush.radialGradient(0f to Color(0xFFFFF8EB).copy(alpha = t.spec), 0.55f to Color(0xFFFFF8EB).copy(alpha = t.spec * 0.35f), 1f to Color.Transparent, center = h, radius = a * 0.62f),
+                    a * 0.62f, h,
+                )
+            }
+            val sx = h.x + (if (llx < 0f) -1f else 1f) * a * 0.38f
+            drawOval(Color.White.copy(alpha = minOf(1f, t.spec + 0.05f)), topLeft = Offset(sx - a * 0.07f, h.y * 0.9f + q.y * 0.1f - b * 0.05f), size = Size(a * 0.14f, b * 0.10f))
+            // ışığın karşı kenarında ince parlak çizgi (cilalı yüzey)
+            drawArc(
+                t.glow.copy(alpha = 0.35f * t.translucent + 0.1f), if (side > 0f) 207f else 27f, 126f, false,
+                topLeft = Offset(q.x - a * 0.9f, q.y - b * 0.84f), size = Size(a * 1.8f, b * 1.68f), style = Stroke(b * 0.06f),
+            )
+            if (tint != null) drawOval(tint, topLeft = Offset(q.x - a, q.y - b), size = Size(a * 2f, b * 2f))
+        }
+    }
+    if (layer) drawContext.canvas.restore()
+}
+
 /** Tek bir tane: gövde, doğal bulutlanma, kenar koyulaşması, yansıyan ışık, ipeksi parlaklık ve keskin ışık noktası. */
 internal fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(
@@ -836,7 +905,15 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     val sp = sprites.get(m, r, this)
     val half = sp.size / 2f
     for (b in beads) {
-        drawImage(sp.shadow, Offset(b.q.x - half, b.q.y - half + r * 0.38f), alpha = b.a * (if (p.dark) 1f else 0.45f))
+        if (look.oval) {
+            val a = r / BEAD_SCALE * OVAL_LEN
+            val sq = Offset(b.q.x, b.q.y + a * 0.45f)
+            rotate(angleOf(b.v) + 90f, sq) {
+                withTransform({ scale(1f, OVAL, sq) }) {
+                    drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.40f * b.a * (if (p.dark) 1f else 0.45f)), Color.Transparent), center = sq, radius = a * 1.25f), a * 1.25f, sq)
+                }
+            }
+        } else drawImage(sp.shadow, Offset(b.q.x - half, b.q.y - half + r * 0.38f), alpha = b.a * (if (p.dark) 1f else 0.45f))
     }
     val litUpTo = prog * 33f
     for (b in beads) {
@@ -867,66 +944,44 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         val img = sp.beads[(b.id * 5) % sp.beads.size]
         val tint = if (lit) phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a) else null
         if (look.oval) {
-            // Oval (arpa) tane: uzun ekseni ip boyunca; ışık yönü sabit kalsın diye görüntü döndürülmeden kırpılır
-            val ang = angleOf(b.v)
-            rotate(ang, b.q) {
-                clipPath(Path().apply { addOval(Rect(b.q.x - r * OVAL, b.q.y - r, b.q.x + r * OVAL, b.q.y + r)) }) {
-                    rotate(-ang, b.q) { drawImage(img, Offset(b.q.x - half, b.q.y - half), alpha = b.a) }
-                    withTransform({ scale(OVAL, 1f, b.q) }) {
-                        drawCircle(Brush.radialGradient(0.62f to Color.Transparent, 1f to m.edge.copy(alpha = 0.6f * b.a), center = b.q, radius = r), r, b.q)
-                        if (tint != null) drawCircle(tint, r, b.q)
-                    }
-                }
-            }
+            drawOvalBead(m, b.q, r / BEAD_SCALE * OVAL_LEN, angleOf(b.v) + 90f, b.id % 6, b.a, tint)
         } else {
             drawImage(img, Offset(b.q.x - half, b.q.y - half), alpha = b.a)
             if (tint != null) drawCircle(tint, r, b.q)
         }
     }
     if (look.classic) {
-        // ── Klasik imame: taşın kendisinden; bilezikler, uzun minare gövde, durak tanesi ve boncuklu kamçı ──
-        val ir = minOf(r, 13.dp.toPx() * k)
+        // ── Klasik imame (fotoğraftaki gibi): oval bilezik, aşağıda şişkinleşen uzun gövde, alt bilezik, durak ve taneli kamçı ──
+        val t = m.oval
+        val ir = minOf(r / BEAD_SCALE * 1.05f, 12.dp.toPx() * k)
         val x0 = c.x
-        var y = c.y + rB - ir * 0.35f
-        fun disc(yc: Float, w: Float, h: Float) = drawOval(
-            Brush.horizontalGradient(0f to m.edge, 0.3f to m.light, 0.6f to m.base, 1f to m.edge, startX = x0 - w / 2, endX = x0 + w / 2),
-            topLeft = Offset(x0 - w / 2, yc - h / 2), size = Size(w, h),
-        )
-        disc(y + ir * 0.14f, ir * 1.15f, ir * 0.30f)
-        disc(y + ir * 0.42f, ir * 0.92f, ir * 0.26f)
-        y += ir * 0.52f
-        val bodyL = ir * 2.7f
+        var y = c.y + rB - ir * 0.15f
+        drawOvalBead(m, Offset(x0, y + ir * 0.15f), ir * 0.55f, 0f, 0, 1f, null)
+        y += ir * 0.42f
+        val bodyL = ir * 2.8f
         val body = Path().apply {
-            moveTo(x0 - ir * 0.26f, y)
-            cubicTo(x0 - ir * 0.24f, y + bodyL * 0.35f, x0 - ir * 0.62f, y + bodyL * 0.55f, x0 - ir * 0.50f, y + bodyL * 0.80f)
-            cubicTo(x0 - ir * 0.42f, y + bodyL * 0.93f, x0 - ir * 0.26f, y + bodyL, x0 - ir * 0.20f, y + bodyL)
+            moveTo(x0 - ir * 0.22f, y)
+            cubicTo(x0 - ir * 0.20f, y + bodyL * 0.30f, x0 - ir * 0.30f, y + bodyL * 0.55f, x0 - ir * 0.48f, y + bodyL * 0.78f)
+            cubicTo(x0 - ir * 0.56f, y + bodyL * 0.90f, x0 - ir * 0.36f, y + bodyL, x0 - ir * 0.20f, y + bodyL)
             lineTo(x0 + ir * 0.20f, y + bodyL)
-            cubicTo(x0 + ir * 0.26f, y + bodyL, x0 + ir * 0.42f, y + bodyL * 0.93f, x0 + ir * 0.50f, y + bodyL * 0.80f)
-            cubicTo(x0 + ir * 0.62f, y + bodyL * 0.55f, x0 + ir * 0.24f, y + bodyL * 0.35f, x0 + ir * 0.26f, y)
+            cubicTo(x0 + ir * 0.36f, y + bodyL, x0 + ir * 0.56f, y + bodyL * 0.90f, x0 + ir * 0.48f, y + bodyL * 0.78f)
+            cubicTo(x0 + ir * 0.30f, y + bodyL * 0.55f, x0 + ir * 0.20f, y + bodyL * 0.30f, x0 + ir * 0.22f, y)
             close()
         }
-        drawPath(body, Brush.horizontalGradient(0f to m.edge, 0.28f to m.light, 0.55f to m.base, 1f to m.edge, startX = x0 - ir * 0.6f, endX = x0 + ir * 0.6f))
-        drawLine(WARM_SPEC.copy(alpha = 0.55f * m.spec), Offset(x0 - ir * 0.30f, y + bodyL * 0.50f), Offset(x0 - ir * 0.36f, y + bodyL * 0.80f), ir * 0.07f, cap = StrokeCap.Round)
-        drawLine(WARM_SPEC.copy(alpha = 0.35f * m.spec), Offset(x0 - ir * 0.13f, y + bodyL * 0.08f), Offset(x0 - ir * 0.15f, y + bodyL * 0.35f), ir * 0.05f, cap = StrokeCap.Round)
+        drawPath(body, Brush.horizontalGradient(0f to t.deep, 0.25f to t.core, 0.5f to t.mid, 0.8f to t.edge, 1f to t.deep, startX = x0 - ir * 0.55f, endX = x0 + ir * 0.55f))
+        drawLine(Color(0xFFFFFAF0).copy(alpha = t.spec * 0.8f), Offset(x0 - ir * 0.12f, y + bodyL * 0.10f), Offset(x0 - ir * 0.14f, y + bodyL * 0.50f), ir * 0.06f, cap = StrokeCap.Round)
+        drawLine(Color(0xFFFFFAF0).copy(alpha = t.spec * 0.8f), Offset(x0 - ir * 0.30f, y + bodyL * 0.72f), Offset(x0 - ir * 0.36f, y + bodyL * 0.88f), ir * 0.06f, cap = StrokeCap.Round)
         y += bodyL
-        disc(y + ir * 0.12f, ir * 0.78f, ir * 0.24f)
-        y += ir * 0.26f
-        val stopR = ir * 0.30f
-        drawCircle(Brush.radialGradient(0f to m.light, 0.6f to m.base, 1f to m.edge, center = Offset(x0 - stopR * 0.3f, y + stopR * 0.7f), radius = stopR * 1.4f), stopR, Offset(x0, y + stopR))
-        y += stopR * 2f
-        // kamçı: tek kat ip üzerinde iki küçük boncuk ve uç tanesi; dokununca sallanır
+        drawOvalBead(m, Offset(x0, y + ir * 0.12f), ir * 0.42f, 0f, 0, 1f, null)
+        drawOvalBead(m, Offset(x0, y + ir * 0.45f), ir * 0.24f, 90f, 0, 1f, null)
+        y += ir * 0.70f
+        // kamçı: ince ip üzerinde küçük oval taneler; dokununca sallanır
         val sway = if (reduce || pulse >= 1f) 0f else sin(pulse * 2f * PI.toFloat() * 1.5f) * (1f - pulse) * 9f
-        val tail = ir * 1.9f
+        val tail = ir * 2.4f
         val cc = CORDS[look.cord.coerceIn(0, CORDS.lastIndex)]
         rotate(sway, Offset(x0, y)) {
-            drawLine(cc[0], Offset(x0, y), Offset(x0, y + tail), 1.6.dp.toPx() * k)
-            drawLine(cc[1].copy(alpha = 0.6f), Offset(x0 - 0.3.dp.toPx() * k, y), Offset(x0 - 0.3.dp.toPx() * k, y + tail), 0.6.dp.toPx() * k)
-            for ((f, rr) in listOf(0.32f to 0.20f, 0.62f to 0.20f, 1.0f to 0.27f)) {
-                val q = Offset(x0, y + tail * f)
-                val rad = ir * rr
-                drawCircle(Brush.radialGradient(0f to m.light, 0.6f to m.base, 1f to m.edge, center = Offset(q.x - rad * 0.3f, q.y - rad * 0.35f), radius = rad * 1.4f), rad, q)
-                drawCircle(WARM_SPEC.copy(alpha = 0.8f * m.spec), rad * 0.18f, Offset(q.x - rad * 0.3f, q.y - rad * 0.3f))
-            }
+            drawLine(cc[0], Offset(x0, y), Offset(x0, y + tail), 1.5.dp.toPx() * k)
+            for (f in floatArrayOf(0.30f, 0.68f, 0.98f)) drawOvalBead(m, Offset(x0, y + tail * f), ir * 0.26f, 90f, 0, 1f, null)
         }
     } else {
     // ── İmame: telkari başlık + uzun tane + telkari uç + halka + püskül ──
