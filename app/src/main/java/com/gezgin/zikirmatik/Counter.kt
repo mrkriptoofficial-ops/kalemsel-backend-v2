@@ -134,7 +134,7 @@ fun CounterScreen(st: AppState, go: (Scr) -> Unit, sheet: (SheetKind) -> Unit) {
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Dome(d, st.settings.bead, pressed, st.pulseKey, st.celebrateKey, st.shakeKey, Modifier.fillMaxSize().padding(vertical = 4.dp))
+            Dome(d, st.settings.bead, DomeLook(st.settings.beadShape == 1, st.settings.imame == 1, st.settings.cord), pressed, st.pulseKey, st.celebrateKey, st.shakeKey, Modifier.fillMaxSize().padding(vertical = 4.dp))
         }
 
         ControlRow(st, d, sheet)
@@ -277,7 +277,7 @@ private fun VirdHeader(st: AppState, d: Disp) {
 
 // ───────────── Kristal kubbe ─────────────
 @Composable
-private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateKey: Int, shakeKey: Int, modifier: Modifier) {
+private fun Dome(d: Disp, bead: Int, look: DomeLook, pressed: Boolean, pulseKey: Int, celebrateKey: Int, shakeKey: Int, modifier: Modifier) {
     val p = LocalPal.current
     val shown = d.shown
     val reduce = rememberReducedMotion()
@@ -343,8 +343,8 @@ private fun Dome(d: Disp, bead: Int, pressed: Boolean, pulseKey: Int, celebrateK
             contentAlignment = Alignment.Center,
         ) {
             val mat = BEADS[bead.coerceIn(0, BEADS.lastIndex)]
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce, back = true) }
-            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce, back = true, look = look) }
+            Canvas(Modifier.fillMaxSize()) { drawDome(p, mat, sprites, prog.value, rot.value, pulse.value, burst.value, press, reduce, look = look) }
             // Rakam her zaman tam ortada; diğer yazılar üst üste bindirilir
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = -lift)) {
                 AnimatedContent(
@@ -430,7 +430,20 @@ class BeadMat(
 )
 
 /** Doğal taşların yüzey deseni. */
-enum class BeadPattern { NONE, DROPS, FLECKS, CHATOYANT, BANDS, VEINS, SHEEN }
+enum class BeadPattern { NONE, DROPS, FLECKS, CHATOYANT, BANDS, VEINS, SHEEN, GLOW }
+
+/** Tespihin görünüş seçenekleri: tane şekli, imame tarzı, ip rengi. */
+class DomeLook(val oval: Boolean = false, val classic: Boolean = false, val cord: Int = 0)
+
+/** İp renkleri: koyu gövde, iplik, parlama (kahve ipek, kırmızı ipek, siyah). */
+private val CORDS = listOf(
+    listOf(Color(0xFF5B3518), Color(0xFFA9773E), Color(0xFFE8C48A).copy(alpha = 0.75f)),
+    listOf(Color(0xFF7E0E16), Color(0xFFC9303A), Color(0xFFF08080).copy(alpha = 0.70f)),
+    listOf(Color(0xFF111114), Color(0xFF3A3A40), Color(0xFF9A9AA4).copy(alpha = 0.60f)),
+)
+
+/** Oval tanenin enine oranı (boyuna 1). */
+private const val OVAL = 0.80f
 
 val BEADS = listOf(
     // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari
@@ -468,6 +481,10 @@ val BEADS = listOf(
     BeadMat("Sitrin", Color(0xE0E8B020), Color(0xFFFFE27A), Color(0xFF9A6406), Color(0xFFFFF0A8), Color(0xFFB07A10), 1f, false, BeadPattern.NONE),
     // Yakut: derin kan kırmızısı
     BeadMat("Yakut", Color(0xEB9E1030), Color(0xFFE0405E), Color(0xFF4A0414), Color(0xFFFF7A90), Color(0xFF5E0A1C), 1f, true, BeadPattern.NONE),
+    // Ateş (yumurta sarısı) kehribar: opak, parlak turuncu
+    BeadMat("Ateş Kehribar", Color(0xFFF08A14), Color(0xFFFFAE3A), Color(0xFFB05200), Color(0xFFFFC468), Color(0xFFCC6608), 0.95f, false),
+    // Vişne kehribar: koyu kiraz kırmızısı, yarı saydam, içinden ışık geçer
+    BeadMat("Vişne Kehribar", Color(0xFF7A0C14), Color(0xFFA8202A), Color(0xFF3A0307), Color(0xFFE0503A), Color(0xFF4A0509), 1f, false, BeadPattern.GLOW),
 )
 
 /** Kubbe tuvalinin yükseklik/genişlik oranı (alttaki imame ve püskül için). */
@@ -663,6 +680,13 @@ private fun DrawScope.drawStonePattern(m: BeadMat, q: Offset, r: Float, variant:
                 topLeft = Offset(p.x - r * 0.7f, p.y - r * 0.4f), size = Size(r * 1.4f, r * 0.8f),
             )
         }
+        BeadPattern.GLOW -> {
+            // vişne kehribar: içinden geçen ışık alt-sağda sıcak bir parıltı olarak toplanır
+            val p = Offset(q.x + r * 0.22f, q.y + r * 0.34f)
+            drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = 0.55f), Color.Transparent), center = p, radius = r * 0.75f), r * 0.75f, p)
+            val d = Offset(q.x - r * 0.15f, q.y - r * 0.2f)
+            drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = 0.35f), Color.Transparent), center = d, radius = r * 0.6f), r * 0.6f, d)
+        }
         BeadPattern.NONE -> Unit
     }
 }
@@ -695,7 +719,7 @@ internal fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(WARM_SPEC.copy(alpha = 0.85f * m.spec), r * 0.065f, spt)
 }
 
-private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean, back: Boolean = false) {
+private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean, back: Boolean = false, look: DomeLook = DomeLook()) {
     val k = size.width / 380.dp.toPx()
     val gapDeg = 18f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
@@ -797,7 +821,8 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     run {
         val cw = 2.6.dp.toPx() * k
         drawCircle(Color.Black.copy(alpha = 0.35f), rB, Offset(c.x, c.y + cw * 0.35f), style = Stroke(cw * 1.1f))
-        drawCircle(CORD_DARK, rB, c, style = Stroke(cw))
+        val cc = CORDS[look.cord.coerceIn(0, CORDS.lastIndex)]
+        drawCircle(cc[0], rB, c, style = Stroke(cw))
         val n = (2f * PI.toFloat() * rB / (cw * 1.05f)).toInt()
         val hl = cw * 0.52f
         for (i in 0 until n) {
@@ -806,8 +831,8 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
             val d = Math.toRadians((ang + 90f + 42f).toDouble())
             val dx = cos(d).toFloat() * hl
             val dy = sin(d).toFloat() * hl
-            drawLine(CORD_LIGHT, Offset(q.x - dx, q.y - dy), Offset(q.x + dx, q.y + dy), cw * 0.40f, cap = StrokeCap.Round)
-            drawLine(CORD_SHINE, Offset(q.x - dx * 0.35f, q.y - dy * 0.35f), Offset(q.x + dx * 0.15f, q.y + dy * 0.15f), cw * 0.16f, cap = StrokeCap.Round)
+            drawLine(cc[1], Offset(q.x - dx, q.y - dy), Offset(q.x + dx, q.y + dy), cw * 0.40f, cap = StrokeCap.Round)
+            drawLine(cc[2], Offset(q.x - dx * 0.35f, q.y - dy * 0.35f), Offset(q.x + dx * 0.15f, q.y + dy * 0.15f), cw * 0.16f, cap = StrokeCap.Round)
         }
     }
 
@@ -873,9 +898,71 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
     for (b in beads.sortedBy { it.q.y }) {
         val recent = ((((CLUSTER - 1) - b.j) % 33f) + 33f) % 33f
         val lit = recent + 0.5f <= litUpTo + 0.01f
-        drawImage(sp.beads[(b.id * 5) % sp.beads.size], Offset(b.q.x - half, b.q.y - half), alpha = b.a)
-        if (lit) drawCircle(phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a), r, b.q)
+        val img = sp.beads[(b.id * 5) % sp.beads.size]
+        val tint = if (lit) phase(p, (recent + 0.5f) / 33f).copy(alpha = 0.10f * b.a) else null
+        if (look.oval) {
+            // Oval (arpa) tane: uzun ekseni ip boyunca; ışık yönü sabit kalsın diye görüntü döndürülmeden kırpılır
+            val ang = angleOf(b.v)
+            rotate(ang, b.q) {
+                clipPath(Path().apply { addOval(Rect(b.q.x - r * OVAL, b.q.y - r, b.q.x + r * OVAL, b.q.y + r)) }) {
+                    rotate(-ang, b.q) { drawImage(img, Offset(b.q.x - half, b.q.y - half), alpha = b.a) }
+                    withTransform({ scale(OVAL, 1f, b.q) }) {
+                        drawCircle(Brush.radialGradient(0.62f to Color.Transparent, 1f to m.edge.copy(alpha = 0.6f * b.a), center = b.q, radius = r), r, b.q)
+                        if (tint != null) drawCircle(tint, r, b.q)
+                    }
+                }
+            }
+        } else {
+            drawImage(img, Offset(b.q.x - half, b.q.y - half), alpha = b.a)
+            if (tint != null) drawCircle(tint, r, b.q)
+        }
     }
+    if (look.classic) {
+        // ── Klasik imame: taşın kendisinden; bilezikler, uzun minare gövde, durak tanesi ve boncuklu kamçı ──
+        val ir = minOf(r, 13.dp.toPx() * k)
+        val x0 = c.x
+        var y = c.y + rB - ir * 0.35f
+        fun disc(yc: Float, w: Float, h: Float) = drawOval(
+            Brush.horizontalGradient(0f to m.edge, 0.3f to m.light, 0.6f to m.base, 1f to m.edge, startX = x0 - w / 2, endX = x0 + w / 2),
+            topLeft = Offset(x0 - w / 2, yc - h / 2), size = Size(w, h),
+        )
+        disc(y + ir * 0.14f, ir * 1.15f, ir * 0.30f)
+        disc(y + ir * 0.42f, ir * 0.92f, ir * 0.26f)
+        y += ir * 0.52f
+        val bodyL = ir * 2.7f
+        val body = Path().apply {
+            moveTo(x0 - ir * 0.26f, y)
+            cubicTo(x0 - ir * 0.24f, y + bodyL * 0.35f, x0 - ir * 0.62f, y + bodyL * 0.55f, x0 - ir * 0.50f, y + bodyL * 0.80f)
+            cubicTo(x0 - ir * 0.42f, y + bodyL * 0.93f, x0 - ir * 0.26f, y + bodyL, x0 - ir * 0.20f, y + bodyL)
+            lineTo(x0 + ir * 0.20f, y + bodyL)
+            cubicTo(x0 + ir * 0.26f, y + bodyL, x0 + ir * 0.42f, y + bodyL * 0.93f, x0 + ir * 0.50f, y + bodyL * 0.80f)
+            cubicTo(x0 + ir * 0.62f, y + bodyL * 0.55f, x0 + ir * 0.24f, y + bodyL * 0.35f, x0 + ir * 0.26f, y)
+            close()
+        }
+        drawPath(body, Brush.horizontalGradient(0f to m.edge, 0.28f to m.light, 0.55f to m.base, 1f to m.edge, startX = x0 - ir * 0.6f, endX = x0 + ir * 0.6f))
+        drawLine(WARM_SPEC.copy(alpha = 0.55f * m.spec), Offset(x0 - ir * 0.30f, y + bodyL * 0.50f), Offset(x0 - ir * 0.36f, y + bodyL * 0.80f), ir * 0.07f, cap = StrokeCap.Round)
+        drawLine(WARM_SPEC.copy(alpha = 0.35f * m.spec), Offset(x0 - ir * 0.13f, y + bodyL * 0.08f), Offset(x0 - ir * 0.15f, y + bodyL * 0.35f), ir * 0.05f, cap = StrokeCap.Round)
+        y += bodyL
+        disc(y + ir * 0.12f, ir * 0.78f, ir * 0.24f)
+        y += ir * 0.26f
+        val stopR = ir * 0.30f
+        drawCircle(Brush.radialGradient(0f to m.light, 0.6f to m.base, 1f to m.edge, center = Offset(x0 - stopR * 0.3f, y + stopR * 0.7f), radius = stopR * 1.4f), stopR, Offset(x0, y + stopR))
+        y += stopR * 2f
+        // kamçı: tek kat ip üzerinde iki küçük boncuk ve uç tanesi; dokununca sallanır
+        val sway = if (reduce || pulse >= 1f) 0f else sin(pulse * 2f * PI.toFloat() * 1.5f) * (1f - pulse) * 9f
+        val tail = ir * 1.9f
+        val cc = CORDS[look.cord.coerceIn(0, CORDS.lastIndex)]
+        rotate(sway, Offset(x0, y)) {
+            drawLine(cc[0], Offset(x0, y), Offset(x0, y + tail), 1.6.dp.toPx() * k)
+            drawLine(cc[1].copy(alpha = 0.6f), Offset(x0 - 0.3.dp.toPx() * k, y), Offset(x0 - 0.3.dp.toPx() * k, y + tail), 0.6.dp.toPx() * k)
+            for ((f, rr) in listOf(0.32f to 0.20f, 0.62f to 0.20f, 1.0f to 0.27f)) {
+                val q = Offset(x0, y + tail * f)
+                val rad = ir * rr
+                drawCircle(Brush.radialGradient(0f to m.light, 0.6f to m.base, 1f to m.edge, center = Offset(q.x - rad * 0.3f, q.y - rad * 0.35f), radius = rad * 1.4f), rad, q)
+                drawCircle(WARM_SPEC.copy(alpha = 0.8f * m.spec), rad * 0.18f, Offset(q.x - rad * 0.3f, q.y - rad * 0.3f))
+            }
+        }
+    } else {
     // ── İmame: telkari başlık + uzun tane + telkari uç + halka + püskül ──
     val ir = minOf(r, 13.dp.toPx() * k)
     val x0 = c.x
@@ -923,6 +1010,7 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
             )
         }
         drawCircle(metalBrush(m.silver, Offset(x0 - ir, y), Offset(x0 + ir, y + ir)), ir * 0.2f, Offset(x0, y + ir * 0.05f))
+    }
     }
 
     // ── Hedef kutlaması ──

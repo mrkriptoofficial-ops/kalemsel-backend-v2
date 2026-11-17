@@ -33,6 +33,9 @@ data class Settings(
     val soundType: Int = 0,        // 0 kehribar, 1 ahşap, 2 kristal
     val soundVol: Int = 1,         // 0 düşük, 1 orta, 2 yüksek
     val slideSound: Boolean = false, // tanenin ipte kayma (sürtünme) sesi
+    val beadShape: Int = 0,        // 0 yuvarlak, 1 oval (arpa)
+    val imame: Int = 0,            // 0 telkari başlıklı, 1 klasik (taşın kendisinden, kamçılı)
+    val cord: Int = 0,             // ip rengi: 0 kahve, 1 kırmızı, 2 siyah
     val volumeKeys: Boolean = true,
     val stopAtTarget: Boolean = false,
     val guardMs: Int = 70,         // çift dokunma koruması
@@ -435,6 +438,9 @@ class Repo(ctx: Context) {
                 soundType = o.optInt("soundType", 0).coerceIn(0, 2),
                 soundVol = o.optInt("soundVol", 1).coerceIn(0, 2),
                 slideSound = o.optBoolean("slideSound", false),
+                beadShape = o.optInt("beadShape", 0).coerceIn(0, 1),
+                imame = o.optInt("imame", 0).coerceIn(0, 1),
+                cord = o.optInt("cord", 0).coerceIn(0, 2),
                 volumeKeys = o.optBoolean("volumeKeys", true),
                 stopAtTarget = o.optBoolean("stopAtTarget", false),
                 guardMs = o.optInt("guardMs", 70).coerceIn(0, 1000),
@@ -451,7 +457,7 @@ class Repo(ctx: Context) {
 
     fun saveSettings(s: Settings) {
         val o = JSONObject()
-            .put("theme", s.theme).put("bead", s.bead).put("lang", s.lang).put("haptic", s.haptic).put("sound", s.sound).put("soundType", s.soundType).put("soundVol", s.soundVol).put("slideSound", s.slideSound)
+            .put("theme", s.theme).put("bead", s.bead).put("lang", s.lang).put("haptic", s.haptic).put("sound", s.sound).put("soundType", s.soundType).put("soundVol", s.soundVol).put("slideSound", s.slideSound).put("beadShape", s.beadShape).put("imame", s.imame).put("cord", s.cord)
             .put("volumeKeys", s.volumeKeys).put("stopAtTarget", s.stopAtTarget)
             .put("guardMs", s.guardMs).put("fontScale", s.fontScale.toDouble())
             .put("milestone", s.milestone).put("dailyGoal", s.dailyGoal)

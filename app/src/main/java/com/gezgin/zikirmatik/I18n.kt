@@ -77,6 +77,7 @@ private val NAMES_EN = mapOf(
     "Ametist" to "Amethyst", "Pembe Kuvars" to "Rose quartz", "Yeşim" to "Jade", "Malakit" to "Malachite",
     "Hematit" to "Hematite", "Obsidyen" to "Obsidian", "Oniks" to "Onyx", "Ay Taşı" to "Moonstone",
     "Mercan" to "Coral", "Sitrin" to "Citrine", "Yakut" to "Ruby",
+    "Ateş Kehribar" to "Fire amber", "Vişne Kehribar" to "Cherry amber",
 )
 
 /** Tema ve tespih adları. */

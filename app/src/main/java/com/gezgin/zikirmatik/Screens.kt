@@ -483,6 +483,24 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                     BEADS.forEachIndexed { i, b -> BeadSwatch(b, s.bead == i, Modifier.width(76.dp)) { st.update { it.copy(bead = i) } } }
                 }
                 Spacer(Modifier.height(14.dp))
+                Text(L("Tane şekli", "Bead shape"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(L("Yuvarlak", "Round"), L("Oval", "Oval")).forEachIndexed { i, t -> GoldChip(t, s.beadShape == i) { st.update { it.copy(beadShape = i) } } }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(L("İmame", "Imame"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(L("Telkari", "Filigree"), L("Klasik", "Classic")).forEachIndexed { i, t -> GoldChip(t, s.imame == i) { st.update { it.copy(imame = i) } } }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(L("İp", "Cord"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(L("Kahve", "Brown"), L("Kırmızı", "Red"), L("Siyah", "Black")).forEachIndexed { i, t -> GoldChip(t, s.cord == i) { st.update { it.copy(cord = i) } } }
+                }
+                Spacer(Modifier.height(14.dp))
                 Text(L("Dil", "Language"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -588,7 +606,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 3.9\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.9\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 4.0\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.0\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
