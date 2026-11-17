@@ -12,8 +12,8 @@ android {
         applicationId = "com.gezgin.zikirmatik"
         minSdk = 21   // Android 5.0 ve üstü
         targetSdk = 34
-        versionCode = 28
-        versionName = "4.3"
+        versionCode = 29
+        versionName = "4.4"
     }
 
     signingConfigs {

@@ -129,7 +129,7 @@ private val SUNNET_ALL = listOf(
         "سُبْحَانَ اللّٰهِ وَالْحَمْدُ لِلّٰهِ وَلَا اِلٰهَ اِلَّا اللّٰهُ وَاللّٰهُ اَكْبَرُ",
         "Sübhânallâhi ve'l-hamdü lillâhi ve lâ ilâhe illallâhu vallâhu ekber",
         "Allah noksanlıklardan münezzehtir, hamd Allah'adır, Allah'tan başka ilah yoktur, Allah en büyüktür",
-        "Allah'a en sevimli sözler bu dördüdür; hangisiyle başladığının bir zararı yoktur. (Müslim)", 100, "Bâkıyât-ı Sâlihât",
+        "Allah'a en sevimli sözler bu dördüdür; hangisiyle başladığının bir zararı yoktur. (Müslim) · Bu kelimeler cennetin fidanlarıdır. (Tirmizî, Daavât 59)", 100, "Bâkıyât-ı Sâlihât",
     ),
     LibItem(
         "لَا اِلٰهَ اِلَّا اللّٰهُ", "Lâ ilâhe illallâh", "Allah'tan başka ilah yoktur",
@@ -291,6 +291,11 @@ val LIB_DUA: List<LibItem> = listOf(
     moved("Yâ Hayyu yâ Kayyûmu"),
     moved("Lâ ilâhe illâ ente sübhâneke"),
     LibItem("اَللّٰهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ وَالْعَجْزِ وَالْكَسَلِ وَالْبُخْلِ وَالْجُبْنِ وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ", "Allâhümme innî eûzü bike mine'l-hemmi ve'l-hazen, ve'l-aczi ve'l-kesel, ve'l-buhli ve'l-cübn, ve dala'i'd-deyni ve ğalebeti'r-ricâl", "Allah'ım, kaygıdan ve hüzünden, acizlikten ve tembellikten, cimrilikten ve korkaklıktan, borç yükünden ve insanların baskısından sana sığınırım.", fazilet = "Hz. Peygamber bu duayı çok yapardı. (Buhârî, Daavât 36)", target = 1, zikirOkunus = "Keder, tembellik ve borçtan korunmak için", baslik = "Keder, tembellik ve borçtan korunmak için"),
+    LibItem("رَبِّ اغْفِرْ وَارْحَمْ وَأَنْتَ خَيْرُ الرَّاحِمِينَ", "Rabbiğfir verham ve ente hayrü'r-râhimîn", "Rabbim! Bağışla, merhamet et; sen merhamet edenlerin en hayırlısısın.", fazilet = "Allah'ın Peygamberine \"Şöyle de\" diyerek öğrettiği duadır. (Mü'minûn 23/118)", target = 1, zikirOkunus = "Bağışlanma ve rahmet için", baslik = "Bağışlanma ve rahmet için"),
+    LibItem("رَبِّ أَنِّي مَسَّنِيَ الضُّرُّ وَأَنْتَ أَرْحَمُ الرَّاحِمِينَ", "Rabbî ennî messeniye'd-durru ve ente erhamü'r-râhimîn", "Rabbim! Bana bu dert dokundu; sen merhametlilerin en merhametlisisin.", fazilet = "Hz. Eyyûb böyle dua edince Allah duasını kabul edip sıkıntısını giderdi. (Enbiyâ 21/83-84)", target = 1, zikirOkunus = "Dert ve hastalıkta · Hz. Eyyûb'un duası", baslik = "Dert ve hastalıkta · Hz. Eyyûb'un duası"),
+    LibItem("رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي", "Rabbişrah lî sadrî ve yessir lî emrî", "Rabbim! Gönlüme ferahlık ver, işimi bana kolaylaştır.", fazilet = "Hz. Mûsâ, Firavun'a gönderilirken böyle dua etti. (Tâhâ 20/25-26)", target = 1, zikirOkunus = "İşlerin kolaylaşması için · Hz. Mûsâ'nın duası", baslik = "İşlerin kolaylaşması için · Hz. Mûsâ'nın duası"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْعَجْزِ وَالْكَسَلِ", "Allâhümme innî eûzü bike mine'l-aczi ve'l-kesel", "Allah'ım! Acizlikten ve tembellikten sana sığınırım.", fazilet = "Hz. Peygamber'in sığınma dualarındandır. (Buhârî, Daavât 38; Müslim, Zikir 50)", target = 1, zikirOkunus = "Acizlik ve tembellikten korunmak için", baslik = "Acizlik ve tembellikten korunmak için"),
+    LibItem("اَللّٰهُمَّ وَفِّقْنَا لِمَا تُحِبُّ وَتَرْضٰى", "Allâhümme veffiknâ limâ tühibbü ve terdâ", "Allah'ım! Bizi sevdiğin ve razı olduğun işlere muvaffak kıl.", fazilet = "Hadislerde bu lafızla geçmez; anlamı sahih, Müslümanların dilinde yaygın bir duadır.", target = 1, zikirOkunus = "Allah'ın razı olduğu işler için", baslik = "Allah'ın razı olduğu işler için"),
     moved("Allâhümme inneke afüvvün"),
     LibItem("سُبْحَانَ الَّذِي سَخَّرَ لَنَا هٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلٰى رَبِّنَا لَمُنْقَلِبُونَ", "Sübhâne'llezî sahhara lenâ hâzâ ve mâ künnâ lehû mukrinîn, ve innâ ilâ rabbinâ le munkalibûn", "Bunu bizim hizmetimize veren Allah'ı tenzih ederiz; yoksa biz buna güç yetiremezdik. Şüphesiz biz Rabbimize döneceğiz.", fazilet = "Hz. Peygamber bineğine binip yola çıkarken böyle derdi. (Zuhruf 43/13-14; Müslim, Hac 425)", target = 1, zikirOkunus = "Yolculuğa çıkarken", baslik = "Yolculuğa çıkarken"),
     LibItem("أَعُوذُ بِاللّٰهِ مِنَ الشَّيْطَانِ الرَّجِيمِ", "Eûzü billâhi mine'ş-şeytâni'r-racîm", "Kovulmuş şeytanın şerrinden Allah'a sığınırım.", fazilet = "Öfkelenen kişi bunu söylerse öfkesi geçer. (Buhârî, Edeb 76; Müslim, Birr 109)", target = 1, zikirOkunus = "Öfkelenince", baslik = "Öfkelenince"),
@@ -466,6 +471,7 @@ private val SALAVAT_RAW = listOf(
         "Allâhümme salli ve sellim alâ seyyidinâ Muhammed",
         "Allah'ım, Efendimiz Muhammed'e salât ve selâm eyle", target = 100, zikirOkunus = "Salavât-ı Şerîfe",
     ),
+    LibItem("أَسْتَغْفِرُ اللّٰهَ الْعَظِيمَ يَا مَالِكَ الْمُلْكِ الْقَدِيمِ صَلِّ وَسَلِّمْ عَلٰى سَيِّدِنَا مُحَمَّدٍ وَعَلٰى آلِهِ وَصَحْبِهِ أَجْمَعِينَ بِعَدَدِ عِلْمِكَ وَبِعَدَدِ مَعْلُومَاتِكَ", "Estağfirullâhe'l-azîm, yâ Mâlike'l-mülki'l-kadîm, salli ve sellim alâ seyyidinâ Muhammedin ve alâ âlihî ve sahbihî ecmaîn, bi adedi ilmike ve bi adedi ma'lûmâtik", "Yüce Allah'tan bağışlanma dilerim. Ey ezelî mülkün sahibi! Efendimiz Muhammed'e, âline ve bütün ashabına ilminin sayısınca ve bildiklerinin adedince salât ve selam eyle.", fazilet = "Hadislerde bu lafızla geçmez; istiğfar ile salavatı birleştiren, büyüklerden gelen bir duadır.", target = 100, zikirOkunus = "İstiğfar ve salavat"),
 )
 
 // Esmâ-ül Hüsnâ, Tirmizî sıralaması: (Arapça, isim, zikir hâli, anlam)
