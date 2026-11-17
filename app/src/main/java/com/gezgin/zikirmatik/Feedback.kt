@@ -148,15 +148,15 @@ class Feedback(ctx: Context) {
         pool?.play(ids[i], v, v, 1, 0, 0.97f + rnd.nextFloat() * 0.06f)
     }
 
-    /** Tespih çekme: önce tanenin ipte kayma sesi, hemen ardından diğer taneye çarpma tıkı. */
-    fun pull(type: Int, volume: Float) {
+    /** Tespih çekme: tane 2'ye indiğinde çarpma tıkı; istenirse öncesinde ipte kayma (sürtünme) sesi. */
+    fun pull(type: Int, volume: Float, slide: Boolean = false) {
         val i = SOUNDS.indexOfFirst { it.name == "kayma" }
-        if (i >= 0 && ready[i] && volume > 0f && !silent()) {
+        if (slide && i >= 0 && ready[i] && volume > 0f && !silent()) {
             val v = (volume * 0.55f).coerceAtMost(1f)
             pool?.play(ids[i], v, v, 1, 0, 0.96f + rnd.nextFloat() * 0.08f)
             // Çarpma sesi, tanenin 2'deki tanelere indiği ana denk gelir
             main.postDelayed({ click(type, volume) }, PULL_MS.toLong())
-        } else click(type, volume)
+        } else main.postDelayed({ click(type, volume) }, PULL_MS.toLong())
     }
 
     /** Ara sayıda iki tanenin art arda çarpması. */

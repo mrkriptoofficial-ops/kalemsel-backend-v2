@@ -479,8 +479,8 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                 Spacer(Modifier.height(14.dp))
                 Text(L("Tespih", "Prayer beads"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BEADS.forEachIndexed { i, b -> BeadSwatch(b, s.bead == i, Modifier.weight(1f)) { st.update { it.copy(bead = i) } } }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BEADS.forEachIndexed { i, b -> BeadSwatch(b, s.bead == i, Modifier.width(76.dp)) { st.update { it.copy(bead = i) } } }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(L("Dil", "Language"), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = p.text))
@@ -550,6 +550,12 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                             GoldChip(t, s.soundVol == i) { st.update { it.copy(soundVol = i) }; st.fb.click(s.soundType, SOUND_VOLUMES[i]) }
                         }
                     }
+                    SettingRow(
+                        L("Sürtünme sesi", "Slide sound"),
+                        L("Tane ipte kayıp inmeden önce çıkan hafif hışırtı.", "A soft rustle as the bead slides along the cord before it lands."),
+                    ) {
+                        LuxSwitch(s.slideSound) { v -> st.update { it.copy(slideSound = v) }; st.fb.pull(s.soundType, SOUND_VOLUMES[s.soundVol], v) }
+                    }
                     Spacer(Modifier.height(10.dp))
                     GhostButton(L("Hedef zilini dinle", "Play target chime"), Modifier.fillMaxWidth(), G.BELL) { st.fb.chime(SOUND_VOLUMES[s.soundVol]) }
                     Spacer(Modifier.height(4.dp))
@@ -582,7 +588,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 3.8\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.8\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 3.9\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 3.9\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
@@ -606,13 +612,12 @@ private fun BeadSwatch(m: BeadMat, selected: Boolean, modifier: Modifier, onClic
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(Modifier.size(30.dp)) {
+        Canvas(Modifier.size(34.dp)) {
             val r = size.minDimension / 2
-            drawCircle(Brush.radialGradient(0f to m.light, 0.55f to m.base, 1f to m.edge, center = Offset(r * 0.7f, r * 0.64f), radius = r * 1.45f))
-            drawCircle(Color.White.copy(alpha = 0.9f * m.spec), r * 0.09f, Offset(r * 0.7f, r * 0.62f))
+            drawBead(m, Offset(r, r), r, 0)
         }
         Spacer(Modifier.height(6.dp))
-        Text(nameL(m.name), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = p.text), maxLines = 1)
+        Text(nameL(m.name), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = p.text), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp))
     }
 }
 

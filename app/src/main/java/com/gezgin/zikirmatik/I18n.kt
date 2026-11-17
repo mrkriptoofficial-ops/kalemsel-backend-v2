@@ -73,6 +73,10 @@ fun String.upperL(): String = uppercase(I18n.locale)
 private val NAMES_EN = mapOf(
     "Safir" to "Sapphire", "Gece" to "Night", "Fildişi" to "Ivory",
     "Kehribar" to "Amber", "Oltu" to "Jet", "Sedef" to "Pearl", "Kristal" to "Crystal",
+    "Akik" to "Agate", "Kaplan Gözü" to "Tiger's eye", "Lapis" to "Lapis lazuli", "Turkuaz" to "Turquoise",
+    "Ametist" to "Amethyst", "Pembe Kuvars" to "Rose quartz", "Yeşim" to "Jade", "Malakit" to "Malachite",
+    "Hematit" to "Hematite", "Obsidyen" to "Obsidian", "Oniks" to "Onyx", "Ay Taşı" to "Moonstone",
+    "Mercan" to "Coral", "Sitrin" to "Citrine", "Yakut" to "Ruby",
 )
 
 /** Tema ve tespih adları. */

@@ -426,14 +426,48 @@ class BeadMat(
     val mottleLight: Color, val mottleDark: Color,
     val spec: Float,
     val silver: Boolean,
+    val pattern: BeadPattern = BeadPattern.NONE,
 )
+
+/** Doğal taşların yüzey deseni. */
+enum class BeadPattern { NONE, DROPS, FLECKS, CHATOYANT, BANDS, VEINS, SHEEN }
 
 val BEADS = listOf(
     // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari
-    BeadMat("Kehribar", Color(0xFFD3922A), Color(0xFFE6AA45), Color(0xFF955A10), Color(0xFFE8B04C), Color(0xFFA0702A), 0.85f, true),
+    BeadMat("Kehribar", Color(0xFFD3922A), Color(0xFFE6AA45), Color(0xFF955A10), Color(0xFFE8B04C), Color(0xFFA0702A), 0.85f, true, BeadPattern.DROPS),
     BeadMat("Oltu", Color(0xFF1C1915), Color(0xFF524940), Color(0xFF040303), Color(0xFF332C25), Color(0xFF0A0908), 1f, true),
     BeadMat("Sedef", Color(0xFFE6DED3), Color(0xFFFFFFFF), Color(0xFFA0928A), Color(0xFFF7E3EE), Color(0xFFD9E5F3), 0.8f, false),
     BeadMat("Kristal", Color(0x66DCE6FF), Color(0xEEFFFFFF), Color(0xCC5E7AB4), Color(0x88FFFFFF), Color(0x55A9BDF0), 1f, false),
+    // Akik (karneol): kızıl turuncu, ince katman halkaları
+    BeadMat("Akik", Color(0xFFB5401F), Color(0xFFE0703F), Color(0xFF6E1A0A), Color(0xFFF09A6A), Color(0xFF7A2210), 0.9f, true, BeadPattern.BANDS),
+    // Kaplan gözü: ışıkla kayan ipeksi altın bant
+    BeadMat("Kaplan Gözü", Color(0xFF8A5A1C), Color(0xFFD49A3E), Color(0xFF3E2408), Color(0xFFF0C060), Color(0xFF4A2C0C), 0.9f, true, BeadPattern.CHATOYANT),
+    // Lapis lazuli: lacivert, altın pirit zerreleri
+    BeadMat("Lapis", Color(0xFF1F3A93), Color(0xFF3C62C8), Color(0xFF0A1745), Color(0xFF5577D8), Color(0xFF0F1F5C), 0.8f, false, BeadPattern.FLECKS),
+    // Turkuaz: mat, kahverengi damar ağı
+    BeadMat("Turkuaz", Color(0xFF3FB3B0), Color(0xFF7FD8D2), Color(0xFF1E6F70), Color(0xFFA5E8E0), Color(0xFF2A8A88), 0.5f, true, BeadPattern.VEINS),
+    // Ametist: yarı saydam mor
+    BeadMat("Ametist", Color(0xE07B3FA8), Color(0xF2C08BE8), Color(0xFF3A1260), Color(0xFFD9B2F5), Color(0xFF4E1F7A), 1f, true, BeadPattern.NONE),
+    // Pembe kuvars: süt pembesi
+    BeadMat("Pembe Kuvars", Color(0xFFE8A9B8), Color(0xFFF8D3DC), Color(0xFFB06A80), Color(0xFFFFE6EC), Color(0xFFC88596), 0.7f, false, BeadPattern.NONE),
+    // Yeşim: yağlı parlaklıkta yumuşak yeşil
+    BeadMat("Yeşim", Color(0xFF3E8E5E), Color(0xFF74C08E), Color(0xFF17462B), Color(0xFF9AD8AE), Color(0xFF245F3C), 0.7f, false, BeadPattern.NONE),
+    // Malakit: iç içe koyu-açık yeşil halkalar
+    BeadMat("Malakit", Color(0xFF1E7A4E), Color(0xFF3FAF77), Color(0xFF08331F), Color(0xFF5CCB92), Color(0xFF0B4A2C), 0.8f, false, BeadPattern.BANDS),
+    // Hematit: metalik gri
+    BeadMat("Hematit", Color(0xFF4A4D52), Color(0xFF9DA2AA), Color(0xFF16171A), Color(0xFFC0C5CC), Color(0xFF222428), 1f, true, BeadPattern.NONE),
+    // Obsidyen: camsı siyah
+    BeadMat("Obsidyen", Color(0xFF121318), Color(0xFF3A3D48), Color(0xFF000000), Color(0xFF5A6070), Color(0xFF050506), 1f, true, BeadPattern.NONE),
+    // Oniks: siyah, ince beyaz katmanlar
+    BeadMat("Oniks", Color(0xFF2A2522), Color(0xFF6A625C), Color(0xFF0A0807), Color(0xFFD8D0C4), Color(0xFF0A0807), 0.9f, true, BeadPattern.BANDS),
+    // Ay taşı: sütlü, mavi ışıltı
+    BeadMat("Ay Taşı", Color(0xEBDDE3EE), Color(0xFFFFFFFF), Color(0xFF8E9BB5), Color(0xFFB9D2FF), Color(0xFFC8CFDC), 0.9f, false, BeadPattern.SHEEN),
+    // Mercan: canlı kırmızı-turuncu
+    BeadMat("Mercan", Color(0xFFD9483B), Color(0xFFF27C66), Color(0xFF8A1E16), Color(0xFFFF9E88), Color(0xFFA0281E), 0.8f, false, BeadPattern.NONE),
+    // Sitrin: saydam bal sarısı
+    BeadMat("Sitrin", Color(0xE0E8B020), Color(0xFFFFE27A), Color(0xFF9A6406), Color(0xFFFFF0A8), Color(0xFFB07A10), 1f, false, BeadPattern.NONE),
+    // Yakut: derin kan kırmızısı
+    BeadMat("Yakut", Color(0xEB9E1030), Color(0xFFE0405E), Color(0xFF4A0414), Color(0xFFFF7A90), Color(0xFF5E0A1C), 1f, true, BeadPattern.NONE),
 )
 
 /** Kubbe tuvalinin yükseklik/genişlik oranı (alttaki imame ve püskül için). */
@@ -558,8 +592,83 @@ private val BEAD_DROPS = listOf(
     listOf(Triple(0.10f, 0.45f, 0.55f)), emptyList(), listOf(Triple(0.28f, -0.05f, 0.45f)),
 )
 
+/** Doğal taş desenleri; tane dairesine kırpılmış olarak çizilir. Varyanta göre her tane biraz farklıdır. */
+private fun DrawScope.drawStonePattern(m: BeadMat, q: Offset, r: Float, variant: Int) {
+    val rnd = java.util.Random(variant * 7919L + m.name.hashCode())
+    when (m.pattern) {
+        BeadPattern.DROPS -> BEAD_DROPS[variant % BEAD_DROPS.size].forEachIndexed { k, (dx, dy, dr) ->
+            drawAmberDrop(q.x + dx * r, q.y + dy * r, dr * r, 20f + k * 55f + variant * 30f)
+        }
+        BeadPattern.FLECKS -> {
+            // pirit zerreleri ve birkaç soluk kalsit lekesi
+            repeat(2) {
+                val p = Offset(q.x + (rnd.nextFloat() - 0.5f) * r * 1.4f, q.y + (rnd.nextFloat() - 0.5f) * r * 1.4f)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFFDCE4F5).copy(alpha = 0.16f), Color.Transparent), center = p, radius = r * 0.35f), r * 0.35f, p)
+            }
+            repeat(9) {
+                val p = Offset(q.x + (rnd.nextFloat() - 0.5f) * r * 1.7f, q.y + (rnd.nextFloat() - 0.5f) * r * 1.7f)
+                val s = r * (0.03f + rnd.nextFloat() * 0.05f)
+                drawCircle(Color(0xFFE9C766).copy(alpha = 0.55f + rnd.nextFloat() * 0.4f), s, p)
+            }
+        }
+        BeadPattern.CHATOYANT -> {
+            // ipeksi lifler ve ışıkla kayan parlak bant
+            val ang = -35f + variant * 17f
+            withTransform({ rotate(ang, q) }) {
+                for (i in -7..7) {
+                    val y = q.y + i * r * 0.13f
+                    drawLine(m.mottleDark.copy(alpha = 0.18f), Offset(q.x - r, y), Offset(q.x + r, y), r * 0.05f)
+                }
+                val by = q.y + (rnd.nextFloat() - 0.5f) * r * 0.5f
+                drawRect(
+                    Brush.verticalGradient(0f to Color.Transparent, 0.5f to m.mottleLight.copy(alpha = 0.55f), 1f to Color.Transparent, startY = by - r * 0.32f, endY = by + r * 0.32f),
+                    topLeft = Offset(q.x - r, by - r * 0.32f), size = Size(r * 2f, r * 0.64f),
+                )
+            }
+        }
+        BeadPattern.BANDS -> {
+            // iç içe katman halkaları (akik, malakit, oniks)
+            val cc = Offset(q.x + (rnd.nextFloat() - 0.5f) * r * 1.6f, q.y + (rnd.nextFloat() - 0.5f) * r * 1.6f)
+            val onyx = m.name == "Oniks"
+            var rad = r * (0.15f + rnd.nextFloat() * 0.1f)
+            var i = 0
+            while (rad < r * 2.4f) {
+                val col = if (i % 2 == 0) m.mottleLight else m.mottleDark
+                val a = if (onyx) (if (i % 2 == 0) 0.55f else 0f) else 0.30f
+                if (a > 0f) drawCircle(col.copy(alpha = a), rad, cc, style = Stroke(r * (if (onyx) 0.035f else 0.07f + rnd.nextFloat() * 0.05f)))
+                rad += r * (0.12f + rnd.nextFloat() * 0.12f)
+                i++
+            }
+        }
+        BeadPattern.VEINS -> {
+            // turkuazın kahverengi damar ağı
+            repeat(3) {
+                val path = Path()
+                var x = q.x + (rnd.nextFloat() - 0.5f) * r * 2f
+                var y = q.y - r
+                path.moveTo(x, y)
+                while (y < q.y + r) {
+                    x += (rnd.nextFloat() - 0.5f) * r * 0.5f
+                    y += r * (0.15f + rnd.nextFloat() * 0.2f)
+                    path.lineTo(x, y)
+                }
+                drawPath(path, Color(0xFF5A4630).copy(alpha = 0.45f), style = Stroke(r * (0.03f + rnd.nextFloat() * 0.03f), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+        }
+        BeadPattern.SHEEN -> {
+            // ay taşının mavi ışıltısı (adularesans)
+            val p = Offset(q.x + r * 0.15f, q.y - r * 0.05f)
+            drawOval(
+                Brush.radialGradient(listOf(Color(0xFF8FB8FF).copy(alpha = 0.55f), Color.Transparent), center = p, radius = r * 0.7f),
+                topLeft = Offset(p.x - r * 0.7f, p.y - r * 0.4f), size = Size(r * 1.4f, r * 0.8f),
+            )
+        }
+        BeadPattern.NONE -> Unit
+    }
+}
+
 /** Tek bir tane: gövde, doğal bulutlanma, kenar koyulaşması, yansıyan ışık, ipeksi parlaklık ve keskin ışık noktası. */
-private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
+internal fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     drawCircle(
         Brush.radialGradient(0f to m.light, 0.55f to m.base, 1f to m.edge, center = Offset(q.x - r * 0.30f, q.y - r * 0.36f), radius = r * 1.45f),
         r, q,
@@ -572,12 +681,8 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
     val r2 = r * (0.30f + 0.2f * h1)
     drawCircle(Brush.radialGradient(listOf(m.mottleLight.copy(alpha = m.mottleLight.alpha * 0.55f), Color.Transparent), center = m1, radius = r1), r1, m1)
     drawCircle(Brush.radialGradient(listOf(m.mottleDark.copy(alpha = m.mottleDark.alpha * 0.28f), Color.Transparent), center = m2, radius = r2), r2, m2)
-    if (m.name == "Kehribar") {
-        clipPath(Path().apply { addOval(Rect(q, r)) }) {
-            BEAD_DROPS[variant % BEAD_DROPS.size].forEachIndexed { k, (dx, dy, dr) ->
-                drawAmberDrop(q.x + dx * r, q.y + dy * r, dr * r, 20f + k * 55f + variant * 30f)
-            }
-        }
+    if (m.pattern != BeadPattern.NONE) {
+        clipPath(Path().apply { addOval(Rect(q, r)) }) { drawStonePattern(m, q, r, variant) }
     }
     drawCircle(Brush.radialGradient(0.70f to Color.Transparent, 1f to m.edge.copy(alpha = 0.55f), center = q, radius = r), r, q)
     // Gerçek kehribardaki gibi: geniş beyaz parlama yok; küçük, sıcak tonlu tek bir ışık noktası

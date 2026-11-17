@@ -162,9 +162,9 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         if (settings.sound) {
             val v = SOUND_VOLUMES[settings.soundVol.coerceIn(0, 2)]
             when {
-                r.completed -> { fb.pull(settings.soundType, v); fb.chime(v, PULL_MS.toLong()) }
+                r.completed -> { fb.pull(settings.soundType, v, settings.slideSound); fb.chime(v, PULL_MS.toLong()) }
                 r.milestone -> fb.doubleClick(settings.soundType, v)
-                else -> fb.pull(settings.soundType, v)
+                else -> fb.pull(settings.soundType, v, settings.slideSound)
             }
         }
         val h = settings.haptic
