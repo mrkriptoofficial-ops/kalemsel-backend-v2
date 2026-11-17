@@ -322,7 +322,7 @@ private fun Dome(d: Disp, bead: Int, look: DomeLook, pressed: Boolean, pulseKey:
     // Kehribar koyulaştıkça yazı rengi okunaklı kalacak şekilde döner
     // Koyu malzemede (oltu, kristal) açık renk yazı, açık malzemede koyu yazı
     val darkAmber = domeNeedsLightText(BEADS[bead.coerceIn(0, BEADS.lastIndex)])
-    val onAmber by animateColorAsState(if (darkAmber) Color(0xFFFFF4DC) else Color(0xFF2E1703), tween(400), label = "yazı")
+    val onAmber by animateColorAsState(if (darkAmber) Color.White else Color(0xFF2E1703), tween(400), label = "yazı")
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         // Kenar boşluklarına taşabilir (requiredSize); yükseklik imame ve püskül için %16 fazla
@@ -371,7 +371,7 @@ private fun Dome(d: Disp, bead: Int, look: DomeLook, pressed: Boolean, pulseKey:
                 }
                 Text(
                     Lf("HEDEF  {0}", "TARGET  {0}", fmt(d.target)),
-                    style = labelStyle(onAmber.copy(alpha = 0.78f)).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
+                    style = labelStyle(Color(0xFFEBCB86)).copy(fontSize = small, fontFeatureSettings = NUM_FEATURES),
                     modifier = Modifier.padding(start = 2.dp),
                 )
             }
@@ -744,54 +744,20 @@ private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: F
         radius = rB * 1.22f, center = c,
     )
 
-    // ── Kubbe: berrak cam (arka katman: gölge + ton; ön katman: kenar, yansıma, çerçeve) ──
+    // ── Kubbe: sade koyu zemin, tesbih renginde hafif yansıma (arka katman: gölge + zemin; ön katman: kenar) ──
     if (back) {
         val sh = Offset(c.x, c.y + rDisc * 0.10f)
         drawCircle(
             Brush.radialGradient(0.80f to Color.Transparent, 0.92f to Color.Black.copy(alpha = if (p.dark) 0.35f else 0.15f), 1f to Color.Transparent, center = sh, radius = rDisc * 1.14f),
             radius = rDisc * 1.14f, center = sh,
         )
-        // Berrak cam: arkadaki gece mavisi ve hâle görünür; yalnızca çok hafif buz mavisi bir ton ve kalın cam kenarı
-        drawCircle(
-            Brush.radialGradient(
-                0f to GLASS_TINT.copy(alpha = 0.10f), 0.80f to GLASS_TINT.copy(alpha = 0.06f), 1f to GLASS_EDGE.copy(alpha = 0.24f),
-                center = Offset(c.x - rDisc * 0.20f, c.y - rDisc * 0.30f), radius = rDisc * 1.4f,
-            ),
-            radius = rDisc, center = c,
-        )
-        // Alt kenarda ışığın toplandığı yumuşak parlaklık (kostik)
-        val caus = Offset(c.x + rDisc * 0.04f, c.y + rDisc * 0.72f)
-        drawOval(
-            Brush.radialGradient(listOf(GLASS_EDGE.copy(alpha = 0.40f), Color.Transparent), center = caus, radius = rDisc * 0.58f),
-            topLeft = Offset(caus.x - rDisc * 0.58f, caus.y - rDisc * 0.20f), size = Size(rDisc * 1.16f, rDisc * 0.40f),
-        )
+        // Sade: koyu, düz bir zemin; tesbihin rengi kenarlardan içeri hafifçe yansır
+        drawCircle(Brush.radialGradient(0f to Color(0xFF0E1A38), 1f to Color(0xFF081127), center = c, radius = rDisc), rDisc, c)
+        drawCircle(Brush.radialGradient(0.55f to m.base.copy(alpha = 0f), 1f to m.light.copy(alpha = 0.22f * m.light.alpha), center = c, radius = rDisc), rDisc, c)
         return
     }
-    // Kristal: kenarda ışık kırılması (fresnel) — iç kenar boyunca ince, aydınlık bir halka
-    val glass = Color(0xFFDCE8FF)
-    drawCircle(
-        Brush.radialGradient(0.84f to Color.Transparent, 0.965f to glass.copy(alpha = 0.34f), 1f to Color.Transparent, center = c, radius = rDisc),
-        rDisc, c,
-    )
-    // Sol üstte ince hilal yansıma (cam yüzeyi); büyük beyaz parlama yok
-    run {
-        val rr = rDisc * 0.90f
-        drawArc(
-            Brush.sweepGradient(
-                0f to Color.Transparent, 0.52f to Color.Transparent, 0.60f to glass.copy(alpha = 0.10f),
-                0.67f to glass.copy(alpha = 0.36f), 0.74f to glass.copy(alpha = 0.10f), 0.82f to Color.Transparent, 1f to Color.Transparent,
-                center = c,
-            ),
-            startAngle = 190f, sweepAngle = 95f, useCenter = false,
-            topLeft = Offset(c.x - rr, c.y - rr), size = Size(rr * 2, rr * 2),
-            style = Stroke(rDisc * 0.035f, cap = StrokeCap.Round),
-        )
-    }
-    // ince altın çerçeve
-    drawCircle(
-        Brush.sweepGradient(listOf(p.goldLight, Color.White, p.gold, p.goldDeep, Color.White.copy(alpha = 0.85f), p.goldLight), center = c),
-        radius = rDisc, center = c, style = Stroke(1.6.dp.toPx() * k), alpha = 0.85f,
-    )
+    // ince kenar çizgisi, tesbihin renginde
+    drawCircle(m.light.copy(alpha = 0.45f), rDisc, c, style = Stroke(1.dp.toPx() * k))
     if (press > 0f) drawCircle(Color.Black.copy(alpha = 0.12f * press), rDisc, c)
     if (pulse < 1f) {
         val a = 1f - pulse
