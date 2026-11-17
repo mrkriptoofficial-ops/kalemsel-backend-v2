@@ -174,8 +174,10 @@ const BEADS = [
   { name: 'Mercan', base: hex('#D9483B'), light: hex('#F27C66'), edge: hex('#8A1E16'), mL: hex('#FF9E88'), mD: hex('#A0281E'), spec: 0.8, silver: false },
   { name: 'Sitrin', base: hex('#E8B020', 0.88), light: hex('#FFE27A'), edge: hex('#9A6406'), mL: hex('#FFF0A8'), mD: hex('#B07A10'), spec: 1, silver: false },
   { name: 'Yakut', base: hex('#9E1030', 0.92), light: hex('#E0405E'), edge: hex('#4A0414'), mL: hex('#FF7A90'), mD: hex('#5E0A1C'), spec: 1, silver: true },
-  { name: 'Ateş Kehribar', base: hex('#F08A14'), light: hex('#FFAE3A'), edge: hex('#B05200'), mL: hex('#FFC468'), mD: hex('#CC6608'), spec: 0.95, silver: false },
-  { name: 'Vişne Kehribar', base: hex('#7A0C14'), light: hex('#A8202A'), edge: hex('#3A0307'), mL: hex('#E0503A'), mD: hex('#4A0509'), spec: 1, silver: false, pat: 'GLOW' },
+  { name: 'Ateş Kehribar', base: hex('#F9A02A'), light: hex('#FFC84E'), edge: hex('#B05606'), mL: hex('#FFD27A'), mD: hex('#E07A10'), spec: 0.95, silver: false,
+    tone: { core: hex('#FFC84E'), mid: hex('#F9A02A'), edge: hex('#E07A10'), deep: hex('#B05606'), glow: hex('#FFB347'), spec: 0.55, specW: 0.20, tr: 0.35 } },
+  { name: 'Vişne Kehribar', base: hex('#5A0912'), light: hex('#8E1A22'), edge: hex('#220104'), mL: hex('#C42A30'), mD: hex('#320306'), spec: 1, silver: false, pat: 'GLOW',
+    tone: { core: hex('#320306'), mid: hex('#5A0912'), edge: hex('#741019'), deep: hex('#220104'), glow: hex('#C42A30'), spec: 0.95, specW: 0.09, tr: 0.85 } },
 ];
 const WARM_SHEEN = hex('#FFE7AE'), WARM_HALO = hex('#FFE9BE'), WARM_SPEC = hex('#FFF1D2');
 const DROP_CORE = hex('#B06A0C'), DROP_EDGE = hex('#B8760F'), DROP_GLOW = hex('#F5BE52');
@@ -186,7 +188,7 @@ function phase(t) { const x = clamp(t, 0, 1) * 4, i = Math.min(Math.floor(x), 3)
 const PULL_TRAIL = hex('#F6D58C');
 // İp renkleri: [gövde, iplik, parlama] — kahve ipek, kırmızı ipek, siyah
 const CORDS = [[hex('#5B3518'), hex('#A9773E'), hex('#E8C48A', 0.75)], [hex('#7E0E16'), hex('#C9303A'), hex('#F08080', 0.70)], [hex('#111114'), hex('#3A3A40'), hex('#9A9AA4', 0.60)]];
-const OVAL = 0.80;
+const OVAL = 0.72, OVAL_LEN = 0.86, BEAD_SCALE = 1.15;
 const GLASS_TINT = hex('#BFD3FF'), GLASS_EDGE = hex('#D6E4FF');
 const GOLD = hex('#D4AE62'), GOLD_L = hex('#F1D9A0'), GOLD_D = hex('#9C7838');
 const CLUSTER = 3, PULL_GAP = 1.5, GAP_DEG = 18, DOME_H = 1.16;
@@ -248,6 +250,36 @@ function stonePattern(ctx, m, x, y, r, v) {
       radialDot(ctx, 0, 0, r * 0.7, hex('#8FB8FF'), 0.55); break;
   }
 }
+// Malzemenin oval tonu: tanımlıysa o, değilse kendi renklerinden türetilir
+function toneOf(m) {
+  return m.tone || (m.tone = { core: m.light, mid: m.base, edge: m.edge, deep: mix(m.edge, [0, 0, 0, 1], 0.35), glow: m.mL, spec: 0.55 * m.spec, specW: 0.16, tr: m.base[3] < 1 ? 0.8 : 0.4 });
+}
+// Gerçek oval (arpa) tane: uzun ekseni ip boyunca; ışık sol üstten, yansıma tanenin boyunca, uçlar hafif koyu
+function ovalBead(ctx, m, cx, cy, a, ang, v, alpha, tint) {
+  const t = toneOf(m), b = a * OVAL, lx = -0.55, ly = -0.83, ca = Math.cos(-ang), sa = Math.sin(-ang);
+  const llx = lx * ca - ly * sa, lly = lx * sa + ly * ca;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, cy); ctx.rotate(ang);
+  ctx.beginPath(); ctx.ellipse(0, 0, a, b, 0, 0, 2 * PI); ctx.clip();
+  ctx.save(); ctx.scale(1, OVAL);
+  let g = ctx.createRadialGradient(llx * a * 0.35, lly * a * 0.35, 0, 0, 0, a * 1.15);
+  g.addColorStop(0, rgba(t.core)); g.addColorStop(0.45, rgba(t.mid)); g.addColorStop(0.85, rgba(t.edge)); g.addColorStop(1, rgba(t.deep));
+  ctx.fillStyle = g; ctx.fillRect(-a * 1.3, -a * 1.3, a * 2.6, a * 2.6);
+  radialDot(ctx, -llx * a * 0.55, -lly * a * 0.55, a * 0.75, t.glow, 0.55 * t.tr);
+  circle(ctx, 0, 0, a, radial(ctx, 0, 0, a, [[0.7, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.28)']]));
+  ctx.restore();
+  for (const sd of [-1, 1]) radialDot(ctx, sd * a, 0, b * 0.9, [0, 0, 0, 1], 0.30);
+  if (m.pat && m.pat !== 'GLOW') { ctx.save(); stonePattern(ctx, m, 0, 0, a, v); ctx.restore(); }
+  const side = lly < 0 ? -1 : 1, hy = side * b * 0.48, hx = llx * a * 0.12;
+  ctx.save(); ctx.translate(hx, hy); ctx.scale(1, t.specW / 0.5);
+  circle(ctx, 0, 0, a * 0.62, radial(ctx, 0, 0, a * 0.62, [[0, `rgba(255,248,235,${t.spec})`], [0.55, `rgba(255,248,235,${t.spec * 0.35})`], [1, 'rgba(255,248,235,0)']]));
+  ctx.restore();
+  ctx.fillStyle = `rgba(255,255,255,${Math.min(1, t.spec + 0.05)})`; ctx.beginPath(); ctx.ellipse(hx + (llx < 0 ? -1 : 1) * a * 0.38, hy * 0.9, a * 0.07, b * 0.05, 0, 0, 2 * PI); ctx.fill();
+  ctx.strokeStyle = rgba(t.glow, 0.35 * t.tr + 0.1); ctx.lineWidth = b * 0.06;
+  ctx.beginPath(); ctx.ellipse(0, 0, a * 0.9, b * 0.84, 0, side > 0 ? PI * 1.15 : PI * 0.15, side > 0 ? PI * 1.85 : PI * 0.85); ctx.stroke();
+  if (tint) { ctx.fillStyle = tint; ctx.fillRect(-a, -b, 2 * a, 2 * b); }
+  ctx.restore();
+}
+
 function drawBead(ctx, m, x, y, r, v) {
   circle(ctx, x, y, r, radial(ctx, x - r * 0.30, y - r * 0.36, r * 1.45, [[0, rgba(m.light)], [0.55, rgba(m.base)], [1, rgba(m.edge)]]));
   const h1 = ((v * 73 + 17) % 97) / 97, h2 = ((v * 41 + 59) % 89) / 89;
@@ -367,7 +399,13 @@ function drawDome(now) {
     beads.push({ id, j, v, x, y, a });
   }
   const sp = getSprites(m, r, DPR), half = sp.size / 2;
-  for (const b of beads) { ctx.globalAlpha = b.a; ctx.drawImage(sp.shadow, b.x - half, b.y - half + r * 0.38, sp.size, sp.size); }
+  for (const b of beads) {
+    if (S.settings.shape === 1) {
+      const a = r / BEAD_SCALE * OVAL_LEN;
+      ctx.save(); ctx.translate(b.x, b.y + a * 0.45); ctx.rotate(angleOf(b.v) * PI / 180 + PI / 2); ctx.scale(1, OVAL);
+      radialDot(ctx, 0, 0, a * 1.25, [0, 0, 0, 1], 0.40 * b.a); ctx.restore();
+    } else { ctx.globalAlpha = b.a; ctx.drawImage(sp.shadow, b.x - half, b.y - half + r * 0.38, sp.size, sp.size); }
+  }
   ctx.globalAlpha = 1;
   const litUpTo = prog * 33;
   for (const b of beads) {
@@ -383,15 +421,7 @@ function drawDome(now) {
     const recent = ((((CLUSTER - 1) - b.j) % 33) + 33) % 33, lit = recent + 0.5 <= litUpTo + 0.01;
     const img = sp.beads[(b.id * 5) % 6], tint = lit ? rgba(phase((recent + 0.5) / 33), 0.10 * b.a) : null;
     if (S.settings.shape === 1) {
-      // Oval (arpa) tane: uzun ekseni ip boyunca; ışık yönü sabit kalsın diye görüntü döndürülmeden kırpılır
-      const ang = angleOf(b.v) * PI / 180;
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(ang);
-      ctx.beginPath(); ctx.ellipse(0, 0, r * OVAL, r, 0, 0, 2 * PI); ctx.clip();
-      ctx.rotate(-ang); ctx.globalAlpha = b.a; ctx.drawImage(img, -half, -half, sp.size, sp.size); ctx.globalAlpha = 1;
-      ctx.rotate(ang); ctx.scale(OVAL, 1);
-      circle(ctx, 0, 0, r, radial(ctx, 0, 0, r, [[0.62, rgba(m.edge, 0)], [1, rgba(m.edge, 0.6 * b.a)]]));
-      if (tint) circle(ctx, 0, 0, r, tint);
-      ctx.restore();
+      ovalBead(ctx, m, b.x, b.y, r / BEAD_SCALE * OVAL_LEN, angleOf(b.v) * PI / 180 + PI / 2, b.id % 6, b.a, tint);
     } else {
       ctx.globalAlpha = b.a; ctx.drawImage(img, b.x - half, b.y - half, sp.size, sp.size); ctx.globalAlpha = 1;
       if (tint) circle(ctx, b.x, b.y, r, tint);
@@ -400,7 +430,7 @@ function drawDome(now) {
 
   const ir = Math.min(r, 13 * k), x0 = cx;
   const sway = reduceMotion || pulse >= 1 ? 0 : Math.sin(pulse * 2 * PI * 1.5) * (1 - pulse) * 9;
-  if (S.settings.imame === 1) drawClassicImame(ctx, m, x0, cy + rB - ir * 0.35, ir, k, sway);
+  if (S.settings.imame === 1) drawClassicImame(ctx, m, x0, cy + rB - ir * 0.15, Math.min(r / BEAD_SCALE * 1.05, 12 * k), k, sway);
   else {
   // imame: telkari başlık + uzun tane + uç + halka + püskül
   let y = cy + rB - ir * 0.55;
@@ -446,44 +476,32 @@ function drawDome(now) {
   }
 }
 
-// Klasik imame: taşın kendisinden; bilezikler, uzun minare gövde, durak tanesi ve boncuklu kamçı
+// Klasik imame (fotoğraftaki gibi): oval bilezik, aşağıda şişkinleşen uzun gövde, alt bilezik, durak ve taneli kamçı
 function drawClassicImame(ctx, m, x0, y, ir, k, sway) {
-  const disc = (yc, w, h) => {
-    const g = ctx.createLinearGradient(x0 - w / 2, 0, x0 + w / 2, 0);
-    g.addColorStop(0, rgba(m.edge)); g.addColorStop(0.3, rgba(m.light)); g.addColorStop(0.6, rgba(m.base)); g.addColorStop(1, rgba(m.edge));
-    ctx.beginPath(); ctx.ellipse(x0, yc, w / 2, h / 2, 0, 0, 2 * PI); ctx.fillStyle = g; ctx.fill();
-  };
-  disc(y + ir * 0.14, ir * 1.15, ir * 0.30); disc(y + ir * 0.42, ir * 0.92, ir * 0.26);
-  y += ir * 0.52;
-  const L = ir * 2.7;
-  ctx.beginPath(); ctx.moveTo(x0 - ir * 0.26, y);
-  ctx.bezierCurveTo(x0 - ir * 0.24, y + L * 0.35, x0 - ir * 0.62, y + L * 0.55, x0 - ir * 0.50, y + L * 0.80);
-  ctx.bezierCurveTo(x0 - ir * 0.42, y + L * 0.93, x0 - ir * 0.26, y + L, x0 - ir * 0.20, y + L);
+  const t = toneOf(m);
+  ovalBead(ctx, m, x0, y + ir * 0.15, ir * 0.55, 0, 0, 1, null);
+  y += ir * 0.42;
+  const L = ir * 2.8;
+  ctx.beginPath(); ctx.moveTo(x0 - ir * 0.22, y);
+  ctx.bezierCurveTo(x0 - ir * 0.20, y + L * 0.30, x0 - ir * 0.30, y + L * 0.55, x0 - ir * 0.48, y + L * 0.78);
+  ctx.bezierCurveTo(x0 - ir * 0.56, y + L * 0.90, x0 - ir * 0.36, y + L, x0 - ir * 0.20, y + L);
   ctx.lineTo(x0 + ir * 0.20, y + L);
-  ctx.bezierCurveTo(x0 + ir * 0.26, y + L, x0 + ir * 0.42, y + L * 0.93, x0 + ir * 0.50, y + L * 0.80);
-  ctx.bezierCurveTo(x0 + ir * 0.62, y + L * 0.55, x0 + ir * 0.24, y + L * 0.35, x0 + ir * 0.26, y);
-  ctx.closePath();
-  const bg = ctx.createLinearGradient(x0 - ir * 0.6, 0, x0 + ir * 0.6, 0);
-  bg.addColorStop(0, rgba(m.edge)); bg.addColorStop(0.28, rgba(m.light)); bg.addColorStop(0.55, rgba(m.base)); bg.addColorStop(1, rgba(m.edge));
-  ctx.fillStyle = bg; ctx.fill();
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = rgba(WARM_SPEC, 0.55 * m.spec); ctx.lineWidth = ir * 0.07; ctx.beginPath(); ctx.moveTo(x0 - ir * 0.30, y + L * 0.50); ctx.lineTo(x0 - ir * 0.36, y + L * 0.80); ctx.stroke();
-  ctx.strokeStyle = rgba(WARM_SPEC, 0.35 * m.spec); ctx.lineWidth = ir * 0.05; ctx.beginPath(); ctx.moveTo(x0 - ir * 0.13, y + L * 0.08); ctx.lineTo(x0 - ir * 0.15, y + L * 0.35); ctx.stroke();
+  ctx.bezierCurveTo(x0 + ir * 0.36, y + L, x0 + ir * 0.56, y + L * 0.90, x0 + ir * 0.48, y + L * 0.78);
+  ctx.bezierCurveTo(x0 + ir * 0.30, y + L * 0.55, x0 + ir * 0.20, y + L * 0.30, x0 + ir * 0.22, y); ctx.closePath();
+  const g = ctx.createLinearGradient(x0 - ir * 0.55, 0, x0 + ir * 0.55, 0);
+  g.addColorStop(0, rgba(t.deep)); g.addColorStop(0.25, rgba(t.core)); g.addColorStop(0.5, rgba(t.mid)); g.addColorStop(0.8, rgba(t.edge)); g.addColorStop(1, rgba(t.deep));
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = `rgba(255,250,240,${t.spec * 0.8})`; ctx.lineWidth = ir * 0.06; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0 - ir * 0.12, y + L * 0.10); ctx.lineTo(x0 - ir * 0.14, y + L * 0.50); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0 - ir * 0.30, y + L * 0.72); ctx.lineTo(x0 - ir * 0.36, y + L * 0.88); ctx.stroke();
   y += L;
-  disc(y + ir * 0.12, ir * 0.78, ir * 0.24);
-  y += ir * 0.26;
-  const sr = ir * 0.30;
-  circle(ctx, x0, y + sr, sr, radial(ctx, x0 - sr * 0.3, y + sr * 0.7, sr * 1.4, [[0, rgba(m.light)], [0.6, rgba(m.base)], [1, rgba(m.edge)]]));
-  y += sr * 2;
-  const tail = ir * 1.9, cc = CORDS[S.settings.cord] || CORDS[0];
+  ovalBead(ctx, m, x0, y + ir * 0.12, ir * 0.42, 0, 0, 1, null);
+  ovalBead(ctx, m, x0, y + ir * 0.45, ir * 0.24, PI / 2, 0, 1, null);
+  y += ir * 0.70;
+  const tail = ir * 2.4, cc = CORDS[S.settings.cord] || CORDS[0];
   ctx.save(); ctx.translate(x0, y); ctx.rotate(sway * PI / 180);
-  ctx.strokeStyle = rgba(cc[0]); ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, tail); ctx.stroke();
-  ctx.strokeStyle = rgba(cc[1], 0.6); ctx.lineWidth = 0.6 * k; ctx.beginPath(); ctx.moveTo(-0.3 * k, 0); ctx.lineTo(-0.3 * k, tail); ctx.stroke();
-  for (const [f, rr] of [[0.32, 0.20], [0.62, 0.20], [1.0, 0.27]]) {
-    const qy = tail * f, rad = ir * rr;
-    circle(ctx, 0, qy, rad, radial(ctx, -rad * 0.3, qy - rad * 0.35, rad * 1.4, [[0, rgba(m.light)], [0.6, rgba(m.base)], [1, rgba(m.edge)]]));
-    circle(ctx, -rad * 0.3, qy - rad * 0.3, rad * 0.18, rgba(WARM_SPEC, 0.8 * m.spec));
-  }
+  ctx.strokeStyle = rgba(cc[0]); ctx.lineWidth = 1.5 * k; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, tail); ctx.stroke();
+  for (const f of [0.30, 0.68, 0.98]) ovalBead(ctx, m, 0, tail * f, ir * 0.26, PI / 2, 0, 1, null);
   ctx.restore();
 }
 
@@ -793,7 +811,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.1</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.2</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
