@@ -27,7 +27,7 @@ const defaults = () => ({
   selId: 1, total: 0, history: {}, laps: {},
   virds: DATA.virdler.map((v) => ({ id: v.id, name: v.name, steps: v.steps })),
   session: null,
-  settings: { bead: 0, sound: true, soundType: 0, vol: 1, slide: false, haptic: true, stopAtTarget: false, milestone: 33, wake: true },
+  settings: { bead: 0, shape: 0, imame: 0, cord: 0, sound: true, soundType: 0, vol: 1, slide: false, haptic: true, stopAtTarget: false, milestone: 33, wake: true },
 });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch { S = defaults(); }
@@ -174,6 +174,8 @@ const BEADS = [
   { name: 'Mercan', base: hex('#D9483B'), light: hex('#F27C66'), edge: hex('#8A1E16'), mL: hex('#FF9E88'), mD: hex('#A0281E'), spec: 0.8, silver: false },
   { name: 'Sitrin', base: hex('#E8B020', 0.88), light: hex('#FFE27A'), edge: hex('#9A6406'), mL: hex('#FFF0A8'), mD: hex('#B07A10'), spec: 1, silver: false },
   { name: 'Yakut', base: hex('#9E1030', 0.92), light: hex('#E0405E'), edge: hex('#4A0414'), mL: hex('#FF7A90'), mD: hex('#5E0A1C'), spec: 1, silver: true },
+  { name: 'Ateş Kehribar', base: hex('#F08A14'), light: hex('#FFAE3A'), edge: hex('#B05200'), mL: hex('#FFC468'), mD: hex('#CC6608'), spec: 0.95, silver: false },
+  { name: 'Vişne Kehribar', base: hex('#7A0C14'), light: hex('#A8202A'), edge: hex('#3A0307'), mL: hex('#E0503A'), mD: hex('#4A0509'), spec: 1, silver: false, pat: 'GLOW' },
 ];
 const WARM_SHEEN = hex('#FFE7AE'), WARM_HALO = hex('#FFE9BE'), WARM_SPEC = hex('#FFF1D2');
 const DROP_CORE = hex('#B06A0C'), DROP_EDGE = hex('#B8760F'), DROP_GLOW = hex('#F5BE52');
@@ -182,7 +184,9 @@ const BEAD_DROPS = [[[0.25, 0.30, 0.55]], [], [[-0.30, 0.28, 0.50]], [[0.10, 0.4
 const PHASE = [hex('#7FA7F0'), hex('#A68CF0'), hex('#EA96BE'), hex('#F2AE62'), hex('#F6DDA0')];
 function phase(t) { const x = clamp(t, 0, 1) * 4, i = Math.min(Math.floor(x), 3); return mix(PHASE[i], PHASE[i + 1], x - i); }
 const PULL_TRAIL = hex('#F6D58C');
-const CORD_DARK = hex('#5B3518'), CORD_LIGHT = hex('#A9773E'), CORD_SHINE = hex('#E8C48A', 0.75);
+// İp renkleri: [gövde, iplik, parlama] — kahve ipek, kırmızı ipek, siyah
+const CORDS = [[hex('#5B3518'), hex('#A9773E'), hex('#E8C48A', 0.75)], [hex('#7E0E16'), hex('#C9303A'), hex('#F08080', 0.70)], [hex('#111114'), hex('#3A3A40'), hex('#9A9AA4', 0.60)]];
+const OVAL = 0.80;
 const GLASS_TINT = hex('#BFD3FF'), GLASS_EDGE = hex('#D6E4FF');
 const GOLD = hex('#D4AE62'), GOLD_L = hex('#F1D9A0'), GOLD_D = hex('#9C7838');
 const CLUSTER = 3, PULL_GAP = 1.5, GAP_DEG = 18, DOME_H = 1.16;
@@ -236,6 +240,9 @@ function stonePattern(ctx, m, x, y, r, v) {
         ctx.lineWidth = r * (0.03 + R() * 0.03); ctx.stroke();
       }
       break;
+    case 'GLOW':
+      radialDot(ctx, x + r * 0.22, y + r * 0.34, r * 0.75, m.mL, 0.55);
+      radialDot(ctx, x - r * 0.15, y - r * 0.2, r * 0.6, m.mD, 0.35); break;
     case 'SHEEN':
       ctx.translate(x + r * 0.15, y - r * 0.05); ctx.scale(1, 0.8 / 1.4);
       radialDot(ctx, 0, 0, r * 0.7, hex('#8FB8FF'), 0.55); break;
@@ -355,7 +362,8 @@ function drawDome(now) {
   {
     const cw = 2.6 * k;
     ctx.lineWidth = cw * 1.1; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(cx, cy + cw * 0.35, rB, 0, 2 * PI); ctx.stroke();
-    ctx.lineWidth = cw; ctx.strokeStyle = rgba(CORD_DARK); ctx.beginPath(); ctx.arc(cx, cy, rB, 0, 2 * PI); ctx.stroke();
+    const cc = CORDS[S.settings.cord] || CORDS[0];
+    ctx.lineWidth = cw; ctx.strokeStyle = rgba(cc[0]); ctx.beginPath(); ctx.arc(cx, cy, rB, 0, 2 * PI); ctx.stroke();
     const n = Math.floor(2 * PI * rB / (cw * 1.05)), hl = cw * 0.52;
     ctx.lineCap = 'round';
     const p1 = new Path2D(), p2 = new Path2D();
@@ -364,8 +372,8 @@ function drawDome(now) {
       p1.moveTo(qx - dx, qy - dy); p1.lineTo(qx + dx, qy + dy);
       p2.moveTo(qx - dx * 0.35, qy - dy * 0.35); p2.lineTo(qx + dx * 0.15, qy + dy * 0.15);
     }
-    ctx.lineWidth = cw * 0.40; ctx.strokeStyle = rgba(CORD_LIGHT); ctx.stroke(p1);
-    ctx.lineWidth = cw * 0.16; ctx.strokeStyle = rgba(CORD_SHINE); ctx.stroke(p2);
+    ctx.lineWidth = cw * 0.40; ctx.strokeStyle = rgba(cc[1]); ctx.stroke(p1);
+    ctx.lineWidth = cw * 0.16; ctx.strokeStyle = rgba(cc[2]); ctx.stroke(p2);
   }
 
   // taneler: gerçek tespih mekaniği (1'de bekler, düşer, 2'de birikir, imamenin arkasından geçer)
@@ -396,12 +404,28 @@ function drawDome(now) {
   }
   for (const b of [...beads].sort((p, q) => p.y - q.y)) {
     const recent = ((((CLUSTER - 1) - b.j) % 33) + 33) % 33, lit = recent + 0.5 <= litUpTo + 0.01;
-    ctx.globalAlpha = b.a; ctx.drawImage(sp.beads[(b.id * 5) % 6], b.x - half, b.y - half, sp.size, sp.size); ctx.globalAlpha = 1;
-    if (lit) circle(ctx, b.x, b.y, r, rgba(phase((recent + 0.5) / 33), 0.10 * b.a));
+    const img = sp.beads[(b.id * 5) % 6], tint = lit ? rgba(phase((recent + 0.5) / 33), 0.10 * b.a) : null;
+    if (S.settings.shape === 1) {
+      // Oval (arpa) tane: uzun ekseni ip boyunca; ışık yönü sabit kalsın diye görüntü döndürülmeden kırpılır
+      const ang = angleOf(b.v) * PI / 180;
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(ang);
+      ctx.beginPath(); ctx.ellipse(0, 0, r * OVAL, r, 0, 0, 2 * PI); ctx.clip();
+      ctx.rotate(-ang); ctx.globalAlpha = b.a; ctx.drawImage(img, -half, -half, sp.size, sp.size); ctx.globalAlpha = 1;
+      ctx.rotate(ang); ctx.scale(OVAL, 1);
+      circle(ctx, 0, 0, r, radial(ctx, 0, 0, r, [[0.62, rgba(m.edge, 0)], [1, rgba(m.edge, 0.6 * b.a)]]));
+      if (tint) circle(ctx, 0, 0, r, tint);
+      ctx.restore();
+    } else {
+      ctx.globalAlpha = b.a; ctx.drawImage(img, b.x - half, b.y - half, sp.size, sp.size); ctx.globalAlpha = 1;
+      if (tint) circle(ctx, b.x, b.y, r, tint);
+    }
   }
 
-  // imame: telkari başlık + uzun tane + uç + halka + püskül
   const ir = Math.min(r, 13 * k), x0 = cx;
+  const sway = reduceMotion || pulse >= 1 ? 0 : Math.sin(pulse * 2 * PI * 1.5) * (1 - pulse) * 9;
+  if (S.settings.imame === 1) drawClassicImame(ctx, m, x0, cy + rB - ir * 0.35, ir, k, sway);
+  else {
+  // imame: telkari başlık + uzun tane + uç + halka + püskül
   let y = cy + rB - ir * 0.55;
   const capH = ir * 0.95;
   ctx.beginPath(); ctx.moveTo(x0 - ir * 0.62, y); ctx.lineTo(x0 + ir * 0.62, y); ctx.lineTo(x0 + ir * 0.30, y + capH); ctx.lineTo(x0 - ir * 0.30, y + capH); ctx.closePath();
@@ -420,7 +444,6 @@ function drawDome(now) {
   y += ir * 0.8;
   ctx.lineWidth = 1.4 * k; ctx.strokeStyle = metal(ctx, m.silver, x0 - ir, y, x0 + ir, y + ir); ctx.beginPath(); ctx.arc(x0, y + ir * 0.22, ir * 0.24, 0, 2 * PI); ctx.stroke();
   y += ir * 0.46;
-  const sway = reduceMotion || pulse >= 1 ? 0 : Math.sin(pulse * 2 * PI * 1.5) * (1 - pulse) * 9;
   const tassel = 24 * k, silk = m.silver ? '#D9A441' : '#D4AE62';
   ctx.save(); ctx.translate(x0, y); ctx.rotate(sway * PI / 180);
   const tg = ctx.createLinearGradient(0, 0, 0, tassel); tg.addColorStop(0, silk); tg.addColorStop(1, silk + '8C');
@@ -428,6 +451,7 @@ function drawDome(now) {
   for (let j = 0; j < 15; j++) { const t = (j - 7) / 7; ctx.beginPath(); ctx.moveTo(t * ir * 0.18, 0); ctx.lineTo(t * ir * 0.9, tassel * (0.92 + 0.08 * (1 - Math.abs(t)))); ctx.stroke(); }
   circle(ctx, 0, ir * 0.05, ir * 0.2, metal(ctx, m.silver, -ir, 0, ir, ir));
   ctx.restore();
+  }
 
   // hedef kutlaması
   if (burst < 1) {
@@ -443,6 +467,47 @@ function drawDome(now) {
       }
     }
   }
+}
+
+// Klasik imame: taşın kendisinden; bilezikler, uzun minare gövde, durak tanesi ve boncuklu kamçı
+function drawClassicImame(ctx, m, x0, y, ir, k, sway) {
+  const disc = (yc, w, h) => {
+    const g = ctx.createLinearGradient(x0 - w / 2, 0, x0 + w / 2, 0);
+    g.addColorStop(0, rgba(m.edge)); g.addColorStop(0.3, rgba(m.light)); g.addColorStop(0.6, rgba(m.base)); g.addColorStop(1, rgba(m.edge));
+    ctx.beginPath(); ctx.ellipse(x0, yc, w / 2, h / 2, 0, 0, 2 * PI); ctx.fillStyle = g; ctx.fill();
+  };
+  disc(y + ir * 0.14, ir * 1.15, ir * 0.30); disc(y + ir * 0.42, ir * 0.92, ir * 0.26);
+  y += ir * 0.52;
+  const L = ir * 2.7;
+  ctx.beginPath(); ctx.moveTo(x0 - ir * 0.26, y);
+  ctx.bezierCurveTo(x0 - ir * 0.24, y + L * 0.35, x0 - ir * 0.62, y + L * 0.55, x0 - ir * 0.50, y + L * 0.80);
+  ctx.bezierCurveTo(x0 - ir * 0.42, y + L * 0.93, x0 - ir * 0.26, y + L, x0 - ir * 0.20, y + L);
+  ctx.lineTo(x0 + ir * 0.20, y + L);
+  ctx.bezierCurveTo(x0 + ir * 0.26, y + L, x0 + ir * 0.42, y + L * 0.93, x0 + ir * 0.50, y + L * 0.80);
+  ctx.bezierCurveTo(x0 + ir * 0.62, y + L * 0.55, x0 + ir * 0.24, y + L * 0.35, x0 + ir * 0.26, y);
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(x0 - ir * 0.6, 0, x0 + ir * 0.6, 0);
+  bg.addColorStop(0, rgba(m.edge)); bg.addColorStop(0.28, rgba(m.light)); bg.addColorStop(0.55, rgba(m.base)); bg.addColorStop(1, rgba(m.edge));
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = rgba(WARM_SPEC, 0.55 * m.spec); ctx.lineWidth = ir * 0.07; ctx.beginPath(); ctx.moveTo(x0 - ir * 0.30, y + L * 0.50); ctx.lineTo(x0 - ir * 0.36, y + L * 0.80); ctx.stroke();
+  ctx.strokeStyle = rgba(WARM_SPEC, 0.35 * m.spec); ctx.lineWidth = ir * 0.05; ctx.beginPath(); ctx.moveTo(x0 - ir * 0.13, y + L * 0.08); ctx.lineTo(x0 - ir * 0.15, y + L * 0.35); ctx.stroke();
+  y += L;
+  disc(y + ir * 0.12, ir * 0.78, ir * 0.24);
+  y += ir * 0.26;
+  const sr = ir * 0.30;
+  circle(ctx, x0, y + sr, sr, radial(ctx, x0 - sr * 0.3, y + sr * 0.7, sr * 1.4, [[0, rgba(m.light)], [0.6, rgba(m.base)], [1, rgba(m.edge)]]));
+  y += sr * 2;
+  const tail = ir * 1.9, cc = CORDS[S.settings.cord] || CORDS[0];
+  ctx.save(); ctx.translate(x0, y); ctx.rotate(sway * PI / 180);
+  ctx.strokeStyle = rgba(cc[0]); ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, tail); ctx.stroke();
+  ctx.strokeStyle = rgba(cc[1], 0.6); ctx.lineWidth = 0.6 * k; ctx.beginPath(); ctx.moveTo(-0.3 * k, 0); ctx.lineTo(-0.3 * k, tail); ctx.stroke();
+  for (const [f, rr] of [[0.32, 0.20], [0.62, 0.20], [1.0, 0.27]]) {
+    const qy = tail * f, rad = ir * rr;
+    circle(ctx, 0, qy, rad, radial(ctx, -rad * 0.3, qy - rad * 0.35, rad * 1.4, [[0, rgba(m.light)], [0.6, rgba(m.base)], [1, rgba(m.edge)]]));
+    circle(ctx, -rad * 0.3, qy - rad * 0.3, rad * 0.18, rgba(WARM_SPEC, 0.8 * m.spec));
+  }
+  ctx.restore();
 }
 
 let raf = 0;
@@ -733,6 +798,9 @@ function settingsSheet() {
     $('#sheetBody').innerHTML = `
       <div class="sec">TESBİH</div>
       <div class="beads">${BEADS.map((b, i) => `<button class="${st.bead === i ? 'on' : ''}" data-bead="${i}"><canvas width="138" height="138"></canvas>${b.name}</button>`).join('')}</div>
+      ${seg('shape', 'Tane şekli', ['Yuvarlak', 'Oval'])}
+      ${seg('imame', 'İmame', ['Telkari', 'Klasik'])}
+      ${seg('cord', 'İp', ['Kahve', 'Kırmızı', 'Siyah'])}
       <div class="sec">SES VE TİTREŞİM</div>
       ${sw('sound', 'Ses', 'Tane çekme ve iniş sesi')}
       ${seg('soundType', 'Ses türü', ['Kehribar', 'Ahşap', 'Kristal'])}
@@ -748,7 +816,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 3.9</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.0</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
@@ -764,7 +832,8 @@ function settingsSheet() {
     });
     $('#sheetBody').querySelectorAll('[data-seg]').forEach((b) => b.onclick = () => {
       st[b.dataset.seg] = +b.dataset.v; save(); body();
-      if (b.dataset.seg !== 'milestone') { Audio.unlock(); fbPull(false, false); }
+      if (b.dataset.seg === 'soundType' || b.dataset.seg === 'vol') { Audio.unlock(); fbPull(false, false); }
+      drawDome(performance.now());
     });
     $('#sInstall').onclick = () => { closeSheet(); showInstall(true); };
     $('#sExport').onclick = () => {
