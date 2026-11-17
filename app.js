@@ -700,7 +700,7 @@ $('#scrim').onclick = closeSheet;
   sh.addEventListener('touchend', () => { if (y0 == null) return; sh.style.transition = ''; sh.style.transform = ''; if (dy > 90) closeSheet(); y0 = null; });
 })();
 
-const LIBS = [['mine', 'Zikirlerim'], ['vird', 'Tesbihat'], ['sunnet', 'Sünnet'], ['dualar', 'Dualar'], ['gunluk', 'Günlük'], ['salavat', 'Salavât'], ['esma', 'Esmâ']];
+const LIBS = [['mine', 'Zikirlerim'], ['vird', 'Tesbihat'], ['sunnet', 'Sünnet'], ['dualar', 'Dualar'], ['hisn', "Hisnü'l-Müslim"], ['gunluk', 'Günlük'], ['salavat', 'Salavât'], ['esma', 'Esmâ']];
 function libSheet(tab = 'mine') { openSheet('Zikirler', LIBS, tab, libBody); }
 function libBody(tab) {
   const body = $('#sheetBody');
@@ -725,6 +725,7 @@ function libBody(tab) {
     });
     return;
   }
+  if (tab === 'hisn') { hisnBody(body); return; }
   const items = DATA[tab];
   const note = tab === 'sunnet' ? "Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler; kaynakları her maddede belirtilmiştir." : tab === 'dualar' ? DATA.duaNote : tab === 'esma' ? DATA.esmaNote : '';
   body.innerHTML = (note ? `<p class="note">${esc(note)}</p>` : '') +
@@ -740,6 +741,32 @@ function libBody(tab) {
     select(z.id, 1); closeSheet(); toast(`${it.zk} eklendi`);
   });
 }
+// Hisnü'l-Müslim: veriler ilk açılışta yüklenir
+function hisnBody(body) {
+  if (!window.HISN) {
+    body.innerHTML = '<p class="note">Yükleniyor…</p>';
+    const sc = document.createElement('script'); sc.src = 'hisn.js';
+    sc.onload = () => { if (sheetState && sheetState.active === 'hisn') hisnBody(body); };
+    sc.onerror = () => { body.innerHTML = '<p class="note">Yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.</p>'; };
+    document.head.appendChild(sc); return;
+  }
+  body.innerHTML = `<p class="note">Saîd b. Ali el-Kahtânî\'nin Kur\'an ve Sünnetten derlediği dua ve zikirler (Hisnü\'l-Müslim). Türkçesi: İsmail Yaşa, tashih: Muhammed Şahin. Bir bölüme dokunarak açın.</p>` + window.HISN.map((ch, ci) => `<details class="hch" data-ci="${ci}"><summary><b>${ci + 1}</b><span>${esc(ch.t)}</span><small>${ch.i.length}</small></summary></details>`).join('');
+  body.querySelectorAll('details.hch').forEach((d) => d.addEventListener('toggle', () => {
+    if (!d.open || d.dataset.done) return; d.dataset.done = '1';
+    const ch = window.HISN[+d.dataset.ci];
+    d.insertAdjacentHTML('beforeend', ch.i.map((it, k) => {
+      const have = S.list.some((z) => z.ar === it.ar);
+      return `<div class="row hrow" data-k="${k}"><div class="tx"><div class="t4">No. ${it.n}${it.c > 1 ? ' · ' + it.c + ' ×' : ''}</div>${it.ar ? `<div class="t0">${esc(it.ar)}</div>` : ''}<div class="t2" style="color:var(--text)">${esc(it.tr)}</div>${it.src ? `<div class="t2">${esc(it.src)}</div>` : ''}</div><button class="ib" aria-label="Ekle">${have ? ICON.check : ICON.plus}</button></div>`;
+    }).join(''));
+    d.querySelectorAll('.hrow').forEach((r) => r.onclick = () => {
+      const it = ch.i[+r.dataset.k];
+      let z = S.list.find((q) => q.ar === it.ar);
+      if (!z) { z = { id: ++uid, ar: it.ar, ok: ch.t, an: it.tr, fz: it.src, c: 0, t: it.c }; S.list.push(z); }
+      select(z.id, 1); closeSheet(); toast('Zikirlerime eklendi');
+    });
+  }));
+}
+
 function delZikir(id) {
   if (S.list.length <= 1) { toast('En az bir zikir kalmalı'); return; }
   const i = S.list.findIndex((z) => z.id === id), z = S.list[i];
@@ -812,7 +839,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.4</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.5</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {

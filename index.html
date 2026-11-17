@@ -104,6 +104,14 @@ header{display:flex;align-items:center;justify-content:space-between;flex:none}
 .row .t1{font-weight:600;font-size:15.5px}
 .row .t0{font-family:var(--arabic);font-size:21px;direction:rtl;text-align:right;line-height:1.5;color:var(--text)}
 .row .t2{font-size:13px;color:var(--sub);margin-top:2px;line-height:1.35}
+.hch{margin-bottom:8px;border-radius:18px;background:rgba(255,255,255,.035);border:1px solid var(--hair)}
+.hch summary{list-style:none;display:flex;align-items:center;gap:10px;padding:14px 14px;cursor:pointer;font-weight:600;font-size:15px}
+.hch summary::-webkit-details-marker{display:none}
+.hch summary b{color:var(--gold-t);font-size:12.5px;min-width:24px}
+.hch summary span{flex:1}
+.hch summary small{color:var(--faint)}
+.hch[open] summary{border-bottom:1px solid var(--hair)}
+.hch .row{margin:8px}
 .row .t4{font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--gold-t);text-transform:uppercase;margin-bottom:4px}
 .row .t3{font-size:12.5px;color:var(--gold-t);margin-top:5px;line-height:1.4;opacity:.9}
 .row .meta{font-size:12.5px;color:var(--faint);white-space:nowrap;text-align:right}
