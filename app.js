@@ -32,6 +32,7 @@ const defaults = () => ({
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch { S = defaults(); }
 S.settings = Object.assign(defaults().settings, S.settings || {});
+if (!S.settings.soundV2) { S.settings.sound = true; S.settings.soundV2 = true; }
 if (!S.list.length) S.list = defaults().list;
 if (!S.list.find((z) => z.id === S.selId)) S.selId = S.list[0].id;
 let saveT = 0;
@@ -97,8 +98,8 @@ const Audio = {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     this.ctx = new AC({ latencyHint: 'interactive' });
-    // iPhone sessiz anahtarına uyulur (ortam sesi)
-    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {}
+    // Tesbih sesi her zaman duyulsun: iPhone'da sessiz anahtarı açık olsa da çalar
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
     const rate = this.ctx.sampleRate;
     for (const [name, [sec, gen]] of Object.entries(SPECS)) {
       const n = Math.floor(rate * sec), b = this.ctx.createBuffer(1, n, rate), d = b.getChannelData(0);
@@ -692,7 +693,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 3.5</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 3.6</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
@@ -794,6 +795,9 @@ document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input,t
 window.addEventListener('resize', () => { drawStars(); layout(); });
 if (window.ResizeObserver) new ResizeObserver(() => layout()).observe($('#domeWrap'));
 document.fonts && document.fonts.ready.then(() => layout());
+
+// iPhone sesi yalnızca parmak kalkınca (touchend/click) açar; ilk dokunuşta ses kaçmasın diye her bırakışta da açılır
+['touchend', 'click', 'pointerup', 'keydown'].forEach((ev) => document.addEventListener(ev, () => Audio.unlock(), { passive: true, capture: true }));
 
 // ───────────── Başlat ─────────────
 drawStars(); render(); layout();
