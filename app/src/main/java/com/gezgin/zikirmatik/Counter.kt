@@ -406,10 +406,10 @@ private val CORD_SHINE = Color(0xFFE8C48A).copy(alpha = 0.75f)
 private val PULL_TRAIL = Color(0xFFF6D58C)
 
 /** 2'de biriken tane sayısı ve 1 ile 2 arasındaki ip boşluğu (tane cinsinden). */
-/** Tane boyutu çarpanı (1 = birbirine yalnızca değen taneler). */
-private const val BEAD_SCALE = 1.45f
+/** Tane boyutu çarpanı (1 = aralıklı; ~1.15 = birbirine değen ama üst üste binmeyen taneler). */
+private const val BEAD_SCALE = 1.15f
 private const val CLUSTER = 3f
-private const val PULL_GAP = 1.9f
+private const val PULL_GAP = 1.5f
 
 /** Tanenin 1'den 2'ye düşüş süresi (ms); iniş sesi bu ana denk gelir. */
 const val PULL_MS = 170
@@ -592,7 +592,7 @@ private fun DrawScope.drawBead(m: BeadMat, q: Offset, r: Float, variant: Int) {
 
 private fun DrawScope.drawDome(p: Pal, m: BeadMat, sprites: BeadSprites, prog: Float, pos: Float, pulse: Float, burst: Float, press: Float, reduce: Boolean, back: Boolean = false) {
     val k = size.width / 380.dp.toPx()
-    val gapDeg = 23f                                         // imamenin durduğu boşluk (altta)
+    val gapDeg = 18f                                         // imamenin durduğu boşluk (altta)
     val seg = (360f - gapDeg) / (33f + PULL_GAP)               // 33 tane + ipteki boş aralık
     val f = PI.toFloat() * seg / 360f                        // tane yarıçapı / ip yarıçapı (birbirine değen taneler)
     // Taneler büyük: komşu taneler gerçek tespihteki gibi hafifçe üst üste biner, kubbe küçülür
