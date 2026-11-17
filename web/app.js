@@ -756,7 +756,7 @@ function hisnBody(body) {
     const ch = window.HISN[+d.dataset.ci];
     d.insertAdjacentHTML('beforeend', ch.i.map((it, k) => {
       const have = S.list.some((z) => z.ar === it.ar);
-      return `<div class="row hrow" data-k="${k}"><div class="tx"><div class="t4">No. ${it.n}${it.c > 1 ? ' · ' + it.c + ' ×' : ''}</div>${it.ar ? `<div class="t0">${esc(it.ar)}</div>` : ''}<div class="t2" style="color:var(--text)">${esc(it.tr)}</div>${it.src ? `<div class="t2">${esc(it.src)}</div>` : ''}</div><button class="ib" aria-label="Ekle">${have ? ICON.check : ICON.plus}</button></div>`;
+      return `<div class="row hrow" data-k="${k}"><div class="tx">${it.n || it.c > 1 ? `<div class="t4">${[it.n ? 'No. ' + it.n : '', it.c > 1 ? it.c + ' ×' : ''].filter(Boolean).join(' · ')}</div>` : ''}${it.ar ? `<div class="t0">${esc(it.ar)}</div>` : ''}<div class="t2" style="color:var(--text)">${esc(it.tr)}</div>${it.src ? `<div class="t2">${esc(it.src)}</div>` : ''}</div><button class="ib" aria-label="Ekle">${have ? ICON.check : ICON.plus}</button></div>`;
     }).join(''));
     d.querySelectorAll('.hrow').forEach((r) => r.onclick = () => {
       const it = ch.i[+r.dataset.k];
@@ -839,7 +839,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.5</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.6</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {

@@ -268,7 +268,7 @@ private fun HisnList(st: AppState) {
                         Glyph(if (isOpen) G.UP else G.DOWN, p.goldText, 18.dp)
                     }
                 }
-                if (isOpen) items(ch.items, key = { "h${it.n}" }) { h -> HisnCard(st, ch, h) }
+                if (isOpen) itemsIndexed(ch.items, key = { k, _ -> "h${ci}_$k" }) { _, h -> HisnCard(st, ch, h) }
             }
         }
     }
@@ -277,15 +277,15 @@ private fun HisnList(st: AppState) {
 @Composable
 private fun HisnCard(st: AppState, ch: HisnChapter, h: HisnItem) {
     val p = LocalPal.current
-    val lib = LibItem(h.ar, "Hisnü'l-Müslim ${h.n}", h.tr, h.src, h.count, ch.title)
+    val lib = LibItem(h.ar, if (h.n > 0) "Hisnü'l-Müslim ${h.n}" else ch.title, h.tr, h.src, h.count, ch.title)
     val have = st.hasLib(lib)
     Row(
         Modifier.fillMaxWidth().padding(start = 12.dp).glass(p, RoundedCornerShape(22.dp)).padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                if (h.count > 1) "No. ${h.n} · ${h.count} ×" else "No. ${h.n}",
+            if (h.n > 0 || h.count > 1) Text(
+                listOfNotNull(if (h.n > 0) "No. ${h.n}" else null, if (h.count > 1) "${h.count} ×" else null).joinToString(" · "),
                 style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, letterSpacing = 1.sp, color = p.goldText),
             )
             Spacer(Modifier.height(4.dp))
@@ -699,7 +699,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 4.5\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.5\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 4.6\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.6\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))
