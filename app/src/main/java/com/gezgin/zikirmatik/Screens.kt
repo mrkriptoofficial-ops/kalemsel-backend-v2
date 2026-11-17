@@ -153,7 +153,7 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
 fun LibraryScreen(st: AppState, back: () -> Unit) {
     val p = LocalPal.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf(L("Sünnet", "Sunnah"), L("Günlük", "Daily"), L("Salavât", "Salawat"), L("Esmâ", "Names"))
+    val tabs = listOf(L("Sünnet", "Sunnah"), L("Dualar", "Duas"), L("Günlük", "Daily"), L("Salavât", "Salawat"), L("Esmâ", "Names"))
     ScreenFrame(L("Kütüphane", "Library"), back) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).glass(p, RoundedCornerShape(50)).padding(4.dp),
@@ -171,12 +171,19 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
             }
         }
         AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { t ->
-            val items = when (t) { 0 -> LIB_SUNNET; 1 -> LIB_GUNLUK; 2 -> LIB_SALAVAT; else -> LIB_ESMA }
+            val items = when (t) { 0 -> LIB_SUNNET; 1 -> LIB_DUA; 2 -> LIB_GUNLUK; 3 -> LIB_SALAVAT; else -> LIB_ESMA }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                if (t == 1 || t == 4) item {
+                    Text(
+                        if (t == 1) L("Peygamber Efendimiz'in (s.a.v.) gün içinde yaptığı dualar; sabahtan geceye sırasıyla, ardından özel durumların duaları. Kaynakları yanında yazılıdır.", "Duas the Prophet (peace be upon him) made through the day, from morning to night, followed by duas for special moments. Sources are noted beside each.") else L("Allah'ın doksan dokuz ismi vardır; kim onları sayar (ezberleyip anlamınca yaşarsa) cennete girer. (Buhârî, Tevhîd 12; Müslim, Zikir 5) · En güzel isimler Allah'ındır; O'na onlarla dua edin. (A'râf 7/180) · Her ismin altında, o isimle hangi hâlde dua edildiği yazılıdır.", "Allah has ninety-nine names; whoever learns them and lives by them enters Paradise. (Bukhari, Muslim) · The most beautiful names belong to Allah, so call on Him by them. (Al-A'raf 7:180) · Under each name you will find when to pray with it."),
+                        style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center, fontSize = 13.sp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
                 if (t == 0) item {
                     Text(
                         L("Peygamber Efendimiz'in (s.a.v.) tavsiye ettiği zikirler. Her birinin faziletini bildiren hadisin kaynağı yanında yazılıdır.", "Dhikr recommended by the Prophet (peace be upon him). The hadith source for each virtue is noted beside it."),
@@ -191,6 +198,10 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
+                            if (item.baslik.isNotBlank()) {
+                                Text(item.baslik.upperL(), style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, letterSpacing = 1.2.sp, color = p.goldText))
+                                Spacer(Modifier.height(4.dp))
+                            }
                             Text(
                                 item.arapca,
                                 style = TextStyle(fontFamily = Arabic, fontSize = 22.sp, lineHeight = 38.sp, color = p.text, textDirection = TextDirection.Rtl, textAlign = TextAlign.End),
@@ -606,7 +617,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 4.2\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.2\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 4.3\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.3\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))

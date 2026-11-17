@@ -407,7 +407,7 @@ private val PULL_TRAIL = Color(0xFFF6D58C)
 
 /** 2'de biriken tane sayısı ve 1 ile 2 arasındaki ip boşluğu (tane cinsinden). */
 /** Tane boyutu çarpanı (1 = aralıklı; ~1.15 = birbirine değen ama üst üste binmeyen taneler). */
-private const val BEAD_SCALE = 1.15f
+private const val BEAD_SCALE = 1.0f
 private const val CLUSTER = 3f
 private const val PULL_GAP = 1.5f
 
@@ -459,7 +459,7 @@ private val CORDS = listOf(
 /** Oval tanenin enine oranı (boyuna 1). */
 private const val OVAL = 0.72f
 /** Oval tanenin yarı boyu, tane aralığının yarısına oranla (<1: aralarında ip görünür). */
-private const val OVAL_LEN = 0.86f
+private const val OVAL_LEN = 1.0f
 
 val BEADS = listOf(
     // Sıkma kehribar: opak, tereyağı sarısı, yumuşak bulutlanma, gümüş telkari

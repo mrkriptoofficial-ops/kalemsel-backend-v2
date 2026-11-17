@@ -55,6 +55,7 @@ data class LibItem(
     val fazilet: String = "",
     val target: Int = 33,
     val zikirOkunus: String = okunus,
+    val baslik: String = "",       // dualar için: ne zaman okunduğu
 )
 
 // ───────────── Hazır içerik ─────────────
@@ -62,9 +63,9 @@ val VARSAYILAN = listOf(
     Zikir(1, "سُبْحَانَ اللّٰهِ", "Sübhânallâh", "Allah her türlü noksanlıktan münezzehtir", "Namaz sonrası tesbihatta 33 kez okunur."),
     Zikir(2, "اَلْحَمْدُ لِلّٰهِ", "Elhamdülillâh", "Hamd yalnızca Allah'adır", "Namaz sonrası tesbihatta 33 kez okunur."),
     Zikir(3, "اَللّٰهُ اَكْبَرُ", "Allâhu Ekber", "Allah en büyüktür", "Namaz sonrası tesbihatta 33 kez okunur."),
-    Zikir(4, "لَا اِلٰهَ اِلَّا اللّٰهُ", "Lâ ilâhe illallâh", "Allah'tan başka ilah yoktur", "", target = 100),
-    Zikir(5, "اَسْتَغْفِرُ اللّٰهَ", "Estağfirullâh", "Allah'tan bağışlanma dilerim", "", target = 100),
-    Zikir(6, "اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Salavât", "Allah'ım, Efendimiz Muhammed'e salât eyle", "", target = 100),
+    Zikir(4, "لَا اِلٰهَ اِلَّا اللّٰهُ", "Lâ ilâhe illallâh", "Allah'tan başka ilah yoktur", "Zikrin en faziletlisi \"Lâ ilâhe illallâh\"tır. (Tirmizî, Daavât 9; İbn Mâce, Edeb 55)", target = 100),
+    Zikir(5, "اَسْتَغْفِرُ اللّٰهَ", "Estağfirullâh", "Allah'tan bağışlanma dilerim", "Allah'a yemin olsun ki ben günde yetmiş defadan fazla Allah'tan bağışlanma diler, O'na tövbe ederim. (Buhârî, Daavât 3) · İstiğfara devam edene Allah her darlıktan bir çıkış, her kederden bir ferahlık verir ve onu ummadığı yerden rızıklandırır. (Ebû Dâvûd, Vitir 26)", target = 100),
+    Zikir(6, "اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Salavât", "Allah'ım, Efendimiz Muhammed'e salât eyle", "Kim bana bir salavat getirirse Allah ona on rahmet eder. (Müslim, Salât 70)", target = 100),
 )
 
 private const val TEVHID_AR = "لَا اِلٰهَ اِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلٰى كُلِّ شَيْءٍ قَدِيرٌ"
@@ -109,7 +110,7 @@ private const val SEYYID_AR = "اَللّٰهُمَّ اَنْتَ رَبِّي 
 private const val IBRAHIMIYYE_AR = "اَللّٰهُمَّ صَلِّ عَلٰى مُحَمَّدٍ وَعَلٰى اٰلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلٰى اِبْرَاهِيمَ وَعَلٰى اٰلِ اِبْرَاهِيمَ اِنَّكَ حَمِيدٌ مَجِيدٌ اَللّٰهُمَّ بَارِكْ عَلٰى مُحَمَّدٍ وَعَلٰى اٰلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلٰى اِبْرَاهِيمَ وَعَلٰى اٰلِ اِبْرَاهِيمَ اِنَّكَ حَمِيدٌ مَجِيدٌ"
 private const val BISMILLAH_AR = "بِسْمِ اللّٰهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْاَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ"
 
-val LIB_SUNNET = listOf(
+private val SUNNET_ALL = listOf(
     LibItem(
         TEVHID_AR, TEVHID_TR, "Allah'tan başka ilah yoktur; tektir, ortağı yoktur. Mülk ve hamd O'nundur, O her şeye kadirdir.",
         "Günde yüz defa söyleyene on köle azat etmiş gibi sevap verilir, yüz iyilik yazılır, yüz hatası silinir ve o gün akşama kadar şeytandan korunur. (Buhârî, Müslim)",
@@ -235,7 +236,198 @@ val LIB_SUNNET = listOf(
     ),
 )
 
-val LIB_GUNLUK = listOf(
+// ───────────── Günlük dualar (zikirlerden ayrı kategori) ─────────────
+/** Sünnet listesinden dualar bölümüne taşınan maddeler: okunuşun başı → başlık. */
+private val DUA_MOVE = listOf(
+    "Allâhümme ente rabbî" to "Seyyidü'l-istiğfâr · sabah ve akşam",
+    "Bismillâhillezî lâ yedurru" to "Sabah ve akşam · 3 kez",
+    "Radîtü billâhi" to "Sabah ve akşam · 3 kez",
+    "Lâ ilâhe illâ ente sübhâneke" to "Darlıkta · Yûnus (a.s.) duası",
+    "Rabbenâ âtinâ" to "En çok yaptığı dua",
+    "Yâ Mukallibe'l-kulûb" to "Kalbin imanda sebatı için",
+    "Allâhümme inneke afüvvün" to "Af dilerken · Kadir gecesi",
+    "Yâ Hayyu yâ Kayyûmu" to "Sıkıntı ve keder anında",
+    "Allâhümme ente's-selâmu" to "Namazdan sonra · 3 Estağfirullâh ile",
+)
+
+val LIB_SUNNET: List<LibItem> = SUNNET_ALL.filter { s -> DUA_MOVE.none { s.okunus.startsWith(it.first) } }
+
+private fun moved(key: String): LibItem {
+    val bs = DUA_MOVE.first { it.first == key }.second
+    return SUNNET_ALL.first { it.okunus.startsWith(key) }.copy(baslik = bs)
+}
+
+/** Peygamber Efendimiz'in gün içindeki duaları: sabahtan geceye, ardından özel durumlar. */
+val LIB_DUA: List<LibItem> = listOf(
+    LibItem("اَلْحَمْدُ لِلّٰهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", "Elhamdü lillâhillezî ahyânâ ba'de mâ emâtenâ ve ileyhi'n-nüşûr", "Bizi öldürdükten sonra dirilten Allah'a hamdolsun; dönüş O'nadır.", fazilet = "Hz. Peygamber uyandığında böyle derdi. (Buhârî, Daavât 7)", target = 1, zikirOkunus = "Uykudan uyanınca", baslik = "Uykudan uyanınca"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْخُبُثِ وَالْخَبَائِثِ", "Allâhümme innî eûzü bike mine'l-hubsi ve'l-habâis", "Allah'ım, erkek ve dişi şeytanların şerrinden sana sığınırım.", fazilet = "Hz. Peygamber tuvalete girmeden önce böyle derdi. (Buhârî, Vudû 9; Müslim, Hayz 122)", target = 1, zikirOkunus = "Tuvalete girerken", baslik = "Tuvalete girerken"),
+    LibItem("غُفْرَانَكَ", "Gufrâneke", "Allah'ım, bağışlamanı dilerim.", fazilet = "Hz. Peygamber tuvaletten çıkınca böyle derdi. (Ebû Dâvûd, Tahâret 17; Tirmizî, Tahâret 5)", target = 1, zikirOkunus = "Tuvaletten çıkınca", baslik = "Tuvaletten çıkınca"),
+    LibItem("أَشْهَدُ أَنْ لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ وَأَشْهَدُ أَنَّ مُحَمَّدًا عَبْدُهُ وَرَسُولُهُ", "Eşhedü en lâ ilâhe illallâhu vahdehû lâ şerîke leh, ve eşhedü enne Muhammeden abdühû ve rasûlüh", "Şahitlik ederim ki Allah'tan başka ilah yoktur, tektir, ortağı yoktur; yine şahitlik ederim ki Muhammed O'nun kulu ve elçisidir.", fazilet = "Güzelce abdest alıp bunu söyleyene cennetin sekiz kapısı açılır, dilediğinden girer. (Müslim, Tahâret 17)", target = 1, zikirOkunus = "Abdestten sonra", baslik = "Abdestten sonra"),
+    LibItem("اَلْحَمْدُ لِلّٰهِ الَّذِي كَسَانِي هٰذَا وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", "Elhamdü lillâhillezî kesânî hâzâ ve razekanîhi min ğayri havlin minnî ve lâ kuvveh", "Benim hiçbir gücüm ve kuvvetim olmadan bunu bana giydiren ve rızık olarak veren Allah'a hamdolsun.", fazilet = "Yeni bir elbise giyip bunu söyleyenin geçmiş günahları bağışlanır. (Ebû Dâvûd, Libâs 1)", target = 1, zikirOkunus = "Elbise giyerken", baslik = "Elbise giyerken"),
+    LibItem("اَللّٰهُمَّ أَنْتَ حَسَّنْتَ خَلْقِي فَحَسِّنْ خُلُقِي", "Allâhümme ente hassente halkī fe hassin hulukī", "Allah'ım, yaratılışımı güzel yaptın; ahlâkımı da güzelleştir.", fazilet = "Hz. Peygamber'in dualarındandır. (Ahmed b. Hanbel, Müsned I, 403)", target = 1, zikirOkunus = "Aynaya bakınca", baslik = "Aynaya bakınca"),
+    LibItem("أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلّٰهِ وَالْحَمْدُ لِلّٰهِ لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلٰى كُلِّ شَيْءٍ قَدِيرٌ", "Asbahnâ ve asbaha'l-mülkü lillâh, ve'l-hamdü lillâh, lâ ilâhe illallâhu vahdehû lâ şerîke leh, lehü'l-mülkü ve lehü'l-hamdü ve hüve alâ külli şey'in kadîr", "Sabaha ulaştık, mülk de Allah'ın olarak sabaha ulaştı. Hamd Allah'adır. Allah'tan başka ilah yoktur, tektir, ortağı yoktur; mülk ve hamd O'nundur, O her şeye kadirdir.", fazilet = "Hz. Peygamber sabah ve akşam böyle derdi; akşam \"Emseynâ ve emse'l-mülkü lillâh\" diye başlardı. (Müslim, Zikir 75)", target = 1, zikirOkunus = "Sabah olunca", baslik = "Sabah olunca"),
+    moved("Allâhümme ente rabbî"),
+    moved("Bismillâhillezî lâ yedurru"),
+    moved("Radîtü billâhi"),
+    LibItem("حَسْبِيَ اللّٰهُ لَا إِلٰهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ", "Hasbiyallâhu lâ ilâhe illâ hû, aleyhi tevekkeltü ve hüve rabbü'l-arşi'l-azîm", "Allah bana yeter; O'ndan başka ilah yoktur. Yalnız O'na güvendim; O, büyük arşın Rabbidir.", fazilet = "Sabah ve akşam yedi defa söyleyene Allah, dünya ve âhiret sıkıntılarında yeter. (Tevbe 9/129; Ebû Dâvûd, Edeb 101)", target = 7, zikirOkunus = "Sabah ve akşam · 7 kez", baslik = "Sabah ve akşam · 7 kez"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَسْأَلُكَ الْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ", "Allâhümme innî es'elüke'l-âfiyete fi'd-dünyâ ve'l-âhireh", "Allah'ım, senden dünyada ve âhirette âfiyet dilerim.", fazilet = "Hz. Peygamber sabah ve akşam bu duayı hiç bırakmazdı. (Ebû Dâvûd, Edeb 101; İbn Mâce, Duâ 14)", target = 1, zikirOkunus = "Sabah ve akşam · âfiyet için", baslik = "Sabah ve akşam · âfiyet için"),
+    LibItem("بِسْمِ اللّٰهِ تَوَكَّلْتُ عَلَى اللّٰهِ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللّٰهِ", "Bismillâhi tevekkeltü ala'llâh, ve lâ havle ve lâ kuvvete illâ billâh", "Allah'ın adıyla; Allah'a güvendim. Güç ve kuvvet yalnızca Allah'tandır.", fazilet = "Bunu söyleyene \"Hidayete erdin, yeterli görüldün, korundun\" denir ve şeytan ondan uzaklaşır. (Ebû Dâvûd, Edeb 103; Tirmizî, Daavât 34)", target = 1, zikirOkunus = "Evden çıkarken", baslik = "Evden çıkarken"),
+    LibItem("اَللّٰهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ", "Allâhümme'ftah lî ebvâbe rahmetik", "Allah'ım, bana rahmet kapılarını aç.", fazilet = "Hz. Peygamber mescide girerken bunu söylemeyi öğretti. (Müslim, Müsâfirîn 68)", target = 1, zikirOkunus = "Mescide girerken", baslik = "Mescide girerken"),
+    LibItem("اَللّٰهُمَّ رَبَّ هٰذِهِ الدَّعْوَةِ التَّامَّةِ وَالصَّلَاةِ الْقَائِمَةِ آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ", "Allâhümme rabbe hâzihi'd-da'veti't-tâmmeh, ve's-salâti'l-kāimeh, âti Muhammedeni'l-vesîlete ve'l-fadîleh, veb'ashü makāmen mahmûdeni'llezî veadteh", "Ey bu eksiksiz davetin ve kılınacak namazın Rabbi Allah'ım! Muhammed'e vesîleyi ve fazileti ver; onu vaat ettiğin Makām-ı Mahmûd'a ulaştır.", fazilet = "Ezanı duyunca bunu okuyana kıyamet günü şefaatim helal olur. (Buhârî, Ezân 8)", target = 1, zikirOkunus = "Ezandan sonra", baslik = "Ezandan sonra"),
+    moved("Allâhümme ente's-selâmu"),
+    LibItem("اَللّٰهُمَّ أَعِنِّي عَلٰى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", "Allâhümme einnî alâ zikrike ve şükrike ve husni ibâdetik", "Allah'ım, seni anmak, sana şükretmek ve sana güzelce ibadet etmek için bana yardım et.", fazilet = "Hz. Peygamber Muâz'a \"Seni seviyorum; her namazın sonunda bunu söylemeyi bırakma\" buyurdu. (Ebû Dâvûd, Vitir 26; Nesâî, Sehv 60)", target = 1, zikirOkunus = "Namazdan sonra", baslik = "Namazdan sonra"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ", "Allâhümme innî es'elüke min fadlik", "Allah'ım, senden lütfunu dilerim.", fazilet = "Hz. Peygamber mescitten çıkarken bunu söylemeyi öğretti. (Müslim, Müsâfirîn 68)", target = 1, zikirOkunus = "Mescitten çıkarken", baslik = "Mescitten çıkarken"),
+    LibItem("بِسْمِ اللّٰهِ · بِسْمِ اللّٰهِ أَوَّلَهُ وَآخِرَهُ", "Bismillâh · unutulursa: Bismillâhi evvelehû ve âhireh", "Allah'ın adıyla · Başında da sonunda da Allah'ın adıyla.", fazilet = "Yemeğe başlarken Allah'ın adını anın; başta unutan \"Bismillâhi evvelehû ve âhireh\" desin. (Buhârî, Et'ime 2; Ebû Dâvûd, Et'ime 15; Tirmizî, Et'ime 47)", target = 1, zikirOkunus = "Yemeğe başlarken", baslik = "Yemeğe başlarken"),
+    LibItem("اَلْحَمْدُ لِلّٰهِ الَّذِي أَطْعَمَنِي هٰذَا وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", "Elhamdü lillâhillezî at'amenî hâzâ ve razekanîhi min ğayri havlin minnî ve lâ kuvveh", "Benim hiçbir gücüm ve kuvvetim olmadan bunu bana yediren ve rızık olarak veren Allah'a hamdolsun.", fazilet = "Yemekten sonra bunu söyleyenin geçmiş günahları bağışlanır. (Ebû Dâvûd, Libâs 1; Tirmizî, Daavât 56)", target = 1, zikirOkunus = "Yemekten sonra", baslik = "Yemekten sonra"),
+    LibItem("بِسْمِ اللّٰهِ وَلَجْنَا وَبِسْمِ اللّٰهِ خَرَجْنَا وَعَلَى اللّٰهِ رَبِّنَا تَوَكَّلْنَا", "Bismillâhi velecnâ, ve bismillâhi haracnâ, ve ala'llâhi rabbinâ tevekkelnâ", "Allah'ın adıyla girdik, Allah'ın adıyla çıktık; Rabbimiz Allah'a güvendik.", fazilet = "Ardından ev halkına selam verilir. Eve girerken Allah'ı anan kişi için şeytan \"Burada size kalacak yer yok\" der. (Ebû Dâvûd, Edeb 103; Müslim, Eşribe 103)", target = 1, zikirOkunus = "Eve girerken", baslik = "Eve girerken"),
+    LibItem("أَعُوذُ بِكَلِمَاتِ اللّٰهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ", "Eûzü bi kelimâti'llâhi't-tâmmâti min şerri mâ halak", "Allah'ın eksiksiz kelimelerine, yarattıklarının şerrinden sığınırım.", fazilet = "Bir yere konaklayıp bunu söyleyene, oradan ayrılıncaya kadar hiçbir şey zarar vermez. (Müslim, Zikir 54; Tirmizî, Daavât 13)", target = 3, zikirOkunus = "Akşam olunca · 3 kez", baslik = "Akşam olunca · 3 kez"),
+    LibItem("اَللّٰهُمَّ أَسْلَمْتُ وَجْهِي إِلَيْكَ وَفَوَّضْتُ أَمْرِي إِلَيْكَ وَأَلْجَأْتُ ظَهْرِي إِلَيْكَ رَغْبَةً وَرَهْبَةً إِلَيْكَ لَا مَلْجَأَ وَلَا مَنْجَا مِنْكَ إِلَّا إِلَيْكَ آمَنْتُ بِكِتَابِكَ الَّذِي أَنْزَلْتَ وَبِنَبِيِّكَ الَّذِي أَرْسَلْتَ", "Allâhümme eslemtü vechî ileyk, ve fevvadtü emrî ileyk, ve elce'tü zahrî ileyk, rağbeten ve rahbeten ileyk, lâ melce'e ve lâ mencâ minke illâ ileyk, âmentü bi kitâbike'llezî enzelt, ve bi nebiyyike'llezî erselt", "Allah'ım, yüzümü sana çevirdim, işimi sana bıraktım, sırtımı sana dayadım; sana duyduğum arzu ve korkuyla. Senden kaçıp sığınılacak yer yine sensin. İndirdiğin kitaba ve gönderdiğin peygambere iman ettim.", fazilet = "Sağ yanına uzanıp bunu son söz olarak okuyan, o gece ölürse fıtrat üzere ölür. (Buhârî, Vudû 75; Müslim, Zikir 56)", target = 1, zikirOkunus = "Yatağa uzanınca", baslik = "Yatağa uzanınca"),
+    LibItem("سُبْحَانَ اللّٰهِ ٣٣ · اَلْحَمْدُ لِلّٰهِ ٣٣ · اَللّٰهُ أَكْبَرُ ٣٤", "Sübhânallâh 33 · Elhamdülillâh 33 · Allâhu ekber 34", "Allah noksanlıklardan münezzehtir · Hamd Allah'adır · Allah en büyüktür.", fazilet = "Hz. Peygamber bunu Hz. Ali ve Hz. Fâtıma'ya \"size bir hizmetçiden daha hayırlıdır\" diyerek öğretti. (Buhârî, Nafakāt 6; Müslim, Zikir 80)", target = 100, zikirOkunus = "Yatmadan önce tesbihat", baslik = "Yatmadan önce tesbihat"),
+    LibItem("بِاسْمِكَ اللّٰهُمَّ أَمُوتُ وَأَحْيَا", "Bismike'llâhümme emûtü ve ahyâ", "Allah'ım, senin adınla ölür ve dirilirim.", fazilet = "Hz. Peygamber yatağına girince böyle derdi. (Buhârî, Daavât 7)", target = 1, zikirOkunus = "Uyurken", baslik = "Uyurken"),
+    moved("Rabbenâ âtinâ"),
+    moved("Yâ Mukallibe'l-kulûb"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَسْأَلُكَ الْهُدٰى وَالتُّقٰى وَالْعَفَافَ وَالْغِنٰى", "Allâhümme innî es'elüke'l-hüdâ ve't-tükā ve'l-afâfe ve'l-ğınâ", "Allah'ım, senden hidayet, takva, iffet ve gönül zenginliği dilerim.", fazilet = "Hz. Peygamber'in sık yaptığı dualardandır. (Müslim, Zikir 72)", target = 1, zikirOkunus = "Hidayet ve iffet için", baslik = "Hidayet ve iffet için"),
+    LibItem("لَا إِلٰهَ إِلَّا اللّٰهُ الْعَظِيمُ الْحَلِيمُ لَا إِلٰهَ إِلَّا اللّٰهُ رَبُّ الْعَرْشِ الْعَظِيمِ لَا إِلٰهَ إِلَّا اللّٰهُ رَبُّ السَّمَاوَاتِ وَرَبُّ الْأَرْضِ وَرَبُّ الْعَرْشِ الْكَرِيمِ", "Lâ ilâhe illallâhu'l-azîmu'l-halîm, lâ ilâhe illallâhu rabbü'l-arşi'l-azîm, lâ ilâhe illallâhu rabbü's-semâvâti ve rabbü'l-ardı ve rabbü'l-arşi'l-kerîm", "Azîm ve Halîm olan Allah'tan başka ilah yoktur. Büyük arşın Rabbi Allah'tan başka ilah yoktur. Göklerin, yerin ve değerli arşın Rabbi Allah'tan başka ilah yoktur.", fazilet = "Hz. Peygamber sıkıntı anında böyle dua ederdi. (Buhârî, Daavât 27; Müslim, Zikir 83)", target = 1, zikirOkunus = "Sıkıntı anında", baslik = "Sıkıntı anında"),
+    moved("Yâ Hayyu yâ Kayyûmu"),
+    moved("Lâ ilâhe illâ ente sübhâneke"),
+    LibItem("اَللّٰهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ وَالْعَجْزِ وَالْكَسَلِ وَالْبُخْلِ وَالْجُبْنِ وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ", "Allâhümme innî eûzü bike mine'l-hemmi ve'l-hazen, ve'l-aczi ve'l-kesel, ve'l-buhli ve'l-cübn, ve dala'i'd-deyni ve ğalebeti'r-ricâl", "Allah'ım, kaygıdan ve hüzünden, acizlikten ve tembellikten, cimrilikten ve korkaklıktan, borç yükünden ve insanların baskısından sana sığınırım.", fazilet = "Hz. Peygamber bu duayı çok yapardı. (Buhârî, Daavât 36)", target = 1, zikirOkunus = "Keder, tembellik ve borçtan korunmak için", baslik = "Keder, tembellik ve borçtan korunmak için"),
+    moved("Allâhümme inneke afüvvün"),
+    LibItem("سُبْحَانَ الَّذِي سَخَّرَ لَنَا هٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلٰى رَبِّنَا لَمُنْقَلِبُونَ", "Sübhâne'llezî sahhara lenâ hâzâ ve mâ künnâ lehû mukrinîn, ve innâ ilâ rabbinâ le munkalibûn", "Bunu bizim hizmetimize veren Allah'ı tenzih ederiz; yoksa biz buna güç yetiremezdik. Şüphesiz biz Rabbimize döneceğiz.", fazilet = "Hz. Peygamber bineğine binip yola çıkarken böyle derdi. (Zuhruf 43/13-14; Müslim, Hac 425)", target = 1, zikirOkunus = "Yolculuğa çıkarken", baslik = "Yolculuğa çıkarken"),
+    LibItem("أَعُوذُ بِاللّٰهِ مِنَ الشَّيْطَانِ الرَّجِيمِ", "Eûzü billâhi mine'ş-şeytâni'r-racîm", "Kovulmuş şeytanın şerrinden Allah'a sığınırım.", fazilet = "Öfkelenen kişi bunu söylerse öfkesi geçer. (Buhârî, Edeb 76; Müslim, Birr 109)", target = 1, zikirOkunus = "Öfkelenince", baslik = "Öfkelenince"),
+    LibItem("اَلْحَمْدُ لِلّٰهِ · يَرْحَمُكَ اللّٰهُ · يَهْدِيكُمُ اللّٰهُ وَيُصْلِحُ بَالَكُمْ", "Elhamdülillâh · Yerhamükellâh · Yehdîkümullâhu ve yuslihu bâleküm", "Hapşıran: Hamd Allah'adır · Duyan: Allah sana merhamet etsin · Hapşıran: Allah sizi hidayete erdirsin ve hâlinizi düzeltsin.", fazilet = "(Buhârî, Edeb 126)", target = 1, zikirOkunus = "Hapşırınca", baslik = "Hapşırınca"),
+    LibItem("اَللّٰهُمَّ صَيِّبًا نَافِعًا", "Allâhümme sayyiben nâfiâ", "Allah'ım, bunu faydalı bir yağmur kıl.", fazilet = "Hz. Peygamber yağmur yağınca böyle derdi. (Buhârî, İstiskā 23)", target = 1, zikirOkunus = "Yağmur yağınca", baslik = "Yağmur yağınca"),
+    LibItem("لَا بَأْسَ طَهُورٌ إِنْ شَاءَ اللّٰهُ", "Lâ be'se tahûrun inşâallâh", "Geçmiş olsun; inşallah bu hastalık günahlarına temizlik olur.", fazilet = "Hz. Peygamber hasta ziyaret edince böyle derdi. (Buhârî, Menâkıb 25; Merdâ 10)", target = 1, zikirOkunus = "Hasta ziyaretinde", baslik = "Hasta ziyaretinde"),
+    LibItem("إِنَّا لِلّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ اَللّٰهُمَّ أْجُرْنِي فِي مُصِيبَتِي وَأَخْلِفْ لِي خَيْرًا مِنْهَا", "İnnâ lillâhi ve innâ ileyhi râciûn, Allâhümme'cürnî fî musîbetî ve ahlif lî hayran minhâ", "Biz Allah'a aidiz ve O'na döneceğiz. Allah'ım, bu musibetimde bana ecir ver ve bana ondan daha hayırlısını ver.", fazilet = "Bunu söyleyene Allah, kaybettiğinden daha hayırlısını verir. (Müslim, Cenâiz 4)", target = 1, zikirOkunus = "Musibet anında", baslik = "Musibet anında"),
+    LibItem("سُبْحَانَكَ اللّٰهُمَّ وَبِحَمْدِكَ أَشْهَدُ أَنْ لَا إِلٰهَ إِلَّا أَنْتَ أَسْتَغْفِرُكَ وَأَتُوبُ إِلَيْكَ", "Sübhânekellâhümme ve bihamdik, eşhedü en lâ ilâhe illâ ent, estağfiruke ve etûbü ileyk", "Allah'ım, seni hamdinle tenzih ederim. Senden başka ilah olmadığına şahitlik ederim. Senden bağışlanma diler, sana tövbe ederim.", fazilet = "Bir meclisten kalkarken bunu söyleyenin o meclisteki hataları bağışlanır. (Tirmizî, Daavât 39; Ebû Dâvûd, Edeb 27)", target = 1, zikirOkunus = "Meclisten kalkarken", baslik = "Meclisten kalkarken"),
+    LibItem("اَلْحَمْدُ لِلّٰهِ الَّذِي بِنِعْمَتِهِ تَتِمُّ الصَّالِحَاتُ", "Elhamdü lillâhillezî bi ni'metihî tetimmü's-sâlihât", "İyilikler, nimetiyle tamamlanan Allah'a hamdolsun.", fazilet = "Hoşa gitmeyen bir şey görünce \"Elhamdü lillâhi alâ külli hâl\" derdi. (İbn Mâce, Edeb 55)", target = 1, zikirOkunus = "Sevindirici bir şey görünce", baslik = "Sevindirici bir şey görünce"),
+    LibItem("اَللّٰهُمَّ أَهِلَّهُ عَلَيْنَا بِالْيُمْنِ وَالْإِيمَانِ وَالسَّلَامَةِ وَالْإِسْلَامِ رَبِّي وَرَبُّكَ اللّٰهُ", "Allâhümme ehillehû aleynâ bi'l-yümni ve'l-îmân, ve's-selâmeti ve'l-islâm, rabbî ve rabbüke'llâh", "Allah'ım, bu ayı bize bereket, iman, esenlik ve İslâm ile doğur. (Ey hilâl) benim de senin de Rabbin Allah'tır.", fazilet = "(Tirmizî, Daavât 50)", target = 1, zikirOkunus = "Yeni ayı (hilâli) görünce", baslik = "Yeni ayı (hilâli) görünce"),
+    LibItem("اَلسَّلَامُ عَلَيْكُمْ أَهْلَ الدِّيَارِ مِنَ الْمُؤْمِنِينَ وَالْمُسْلِمِينَ وَإِنَّا إِنْ شَاءَ اللّٰهُ بِكُمْ لَلَاحِقُونَ أَسْأَلُ اللّٰهَ لَنَا وَلَكُمُ الْعَافِيَةَ", "Esselâmü aleyküm ehle'd-diyâri mine'l-mü'minîne ve'l-müslimîn, ve innâ inşâallâhu biküm le lâhikūn, es'elu'llâhe lenâ ve leküme'l-âfiyeh", "Selam size ey bu yurtların mümin ve müslüman sakinleri! İnşallah biz de size katılacağız. Allah'tan bizim ve sizin için âfiyet dilerim.", fazilet = "Hz. Peygamber kabristana gidenlere bunu söylemeyi öğretti. (Müslim, Cenâiz 104)", target = 1, zikirOkunus = "Kabir ziyaretinde", baslik = "Kabir ziyaretinde"),
+)
+
+/** Kaynağı belirtilmemiş maddelerin faziletleri (okunuş → fazilet). */
+private val FZ_EK = mapOf(
+    "Sübhânallâh" to "Günde yüz defa tesbih edene bin sevap yazılır ya da bin hatası silinir. (Müslim, Zikir 37) · Her namazdan sonra 33 Sübhânallâh, 33 Elhamdülillâh, 33 Allâhu ekber deyip yüzü tevhidle tamamlayanın günahları deniz köpüğü kadar olsa da bağışlanır. (Müslim, Mesâcid 146)",
+    "Elhamdülillâh" to "\"Elhamdülillâh\" mizanı doldurur. (Müslim, Tahâret 1) · Duanın en faziletlisi \"Elhamdülillâh\"tır. (Tirmizî, Daavât 9)",
+    "Allâhu Ekber" to "Sübhânallâh, elhamdülillâh, lâ ilâhe illallâh ve Allâhu ekber demek, üzerine güneşin doğduğu her şeyden bana daha sevimlidir. (Müslim, Zikir 32)",
+    "Lâ ilâhe illallâh" to "Zikrin en faziletlisi \"Lâ ilâhe illallâh\"tır. (Tirmizî, Daavât 9; İbn Mâce, Edeb 55)",
+    "Kelime-i Tevhîd" to "On defa söyleyen, İsmâiloğullarından dört köle azat etmiş gibi olur. (Buhârî, Daavât 64; Müslim, Zikir 30)",
+    "Sübhânallâhi'l-azîm" to "İki kelime vardır; dile hafif, mizanda ağır, Rahmân'a sevimlidir: \"Sübhânallâhi ve bihamdihî, sübhânallâhi'l-azîm.\" (Buhârî, Daavât 65; Müslim, Zikir 31)",
+    "Hasbünallâhu ve ni'me'l-vekîl" to "Hz. İbrâhim ateşe atılırken bunu söyledi; Hz. Peygamber ve ashabı da \"Düşman size karşı toplandı\" denildiğinde bunu söylediler. (Âl-i İmrân 3/173; Buhârî, Tefsîr, Âl-i İmrân 13)",
+    "Estağfirullâh" to "Allah'a yemin olsun ki ben günde yetmiş defadan fazla Allah'tan bağışlanma diler, O'na tövbe ederim. (Buhârî, Daavât 3) · İstiğfara devam edene Allah her darlıktan bir çıkış, her kederden bir ferahlık verir ve onu ummadığı yerden rızıklandırır. (Ebû Dâvûd, Vitir 26)",
+    "Estağfirullâhe'l-azîm ve etûbü ileyh" to "Ey insanlar, Allah'a tövbe edin; ben günde yüz defa tövbe ederim. (Müslim, Zikir 42)",
+    "Salavât" to "Kim bana bir salavat getirirse Allah ona on rahmet eder. (Müslim, Salât 70)",
+    "Allâhümme salli alâ seyyidinâ Muhammed" to "Kim bana bir salavat getirirse Allah ona on rahmet eder. (Müslim, Salât 70) · Allah ve melekleri Peygamber'e salât eder; ey iman edenler, siz de ona salât ve selam getirin. (Ahzâb 33/56)",
+    "Allâhümme salli alâ Muhammedin ve alâ âli Muhammed" to "Ashab \"Sana nasıl salavat getirelim?\" diye sorunca Hz. Peygamber bu salavatı öğretti; namazda okunan salli-bârik dualarıdır. (Buhârî, Enbiyâ 10; Müslim, Salât 66)",
+    "Sallallâhu aleyhi ve sellem" to "Yanında anıldığım hâlde bana salavat getirmeyen kişi cimridir. (Tirmizî, Daavât 100)",
+    "Allâhümme salli ve sellim alâ seyyidinâ Muhammed" to "Kıyamet günü insanların bana en yakın olanı, bana en çok salavat getirenidir. (Tirmizî, Vitir 21)",
+)
+
+private fun LibItem.withFz(): LibItem = if (fazilet.isNotBlank()) this else copy(fazilet = FZ_EK[okunus] ?: FZ_EK[zikirOkunus] ?: "")
+
+/** Esmâ-ül Hüsnâ: her isimle hangi hâlde dua edildiği. */
+private val ESMA_FZ = listOf(
+    "Bütün isimleri kendinde toplayan isimdir; her duanın başında ve sonunda anılır. (Tâhâ 20/8)",
+    "Merhamet ve rahmet dilerken \"Yâ Rahmân\" diye dua edilir.",
+    "Âhirette bağışlanma ve rahmet umarken \"Yâ Rahîm\" diye dua edilir.",
+    "Bütün işlerin O'nun elinde olduğunu bilip, kimseye muhtaç olmamak için \"Yâ Melik\" diye dua edilir.",
+    "Kalbin ve amellerin arınması için \"Yâ Kuddûs\" diye dua edilir. Hz. Peygamber vitirden sonra \"Sübhâne'l-meliki'l-kuddûs\" derdi (kaynağıyla Sünnet bölümünde).",
+    "Huzur, esenlik ve selamet dilerken \"Yâ Selâm\" diye dua edilir.",
+    "Korku ve endişe anında güven dilerken \"Yâ Mü'min\" diye dua edilir.",
+    "Kendini, aileni ve emanetleri korumasına bırakırken \"Yâ Müheymin\" diye dua edilir.",
+    "İzzet ve onur dilerken, zillete düşmekten sığınırken \"Yâ Azîz\" diye dua edilir.",
+    "Kırılmış gönüllerin onarılması ve işlerin düzelmesi için \"Yâ Cebbâr\" diye dua edilir.",
+    "Kibirden korunmak ve tevazu istemek için \"Yâ Mütekebbir\" diye anılır.",
+    "Yeni bir işe başlarken hayırlısının yaratılması için \"Yâ Hâlık\" diye dua edilir.",
+    "Kusur ve ayıplardan korunmak için \"Yâ Bâri'\" diye dua edilir.",
+    "Hamilelikte, sağlıklı ve güzel bir yaratılış için \"Yâ Musavvir\" diye dua edilir.",
+    "Günahların örtülüp bağışlanması için \"Yâ Gaffâr\" diye dua edilir. (Nûh 71/10)",
+    "Nefsin ve zalimlerin şerrinden korunmak için \"Yâ Kahhâr\" diye dua edilir.",
+    "Hayırlı evlat, ilim ve rahmet dilerken \"Yâ Vehhâb\" diye dua edilir. (Âl-i İmrân 3/8)",
+    "Helal ve bereketli rızık dilerken \"Yâ Rezzâk\" diye dua edilir.",
+    "Kapalı kapıların ve hayır yollarının açılması için \"Yâ Fettâh\" diye dua edilir.",
+    "Faydalı ilim dilerken \"Yâ Alîm\" diye dua edilir.",
+    "Darlık geldiğinde sabır ve hikmetini anlamak için \"Yâ Kâbıd\" diye anılır.",
+    "Gönül ferahlığı ve rızık genişliği için \"Yâ Bâsıt\" diye dua edilir.",
+    "Kibirden ve zalimin üstünlüğünden korunmak için \"Yâ Hâfıd\" diye anılır.",
+    "Derecenin yükselmesi ve hayırlı makam için \"Yâ Râfi'\" diye dua edilir.",
+    "Dünyada ve âhirette izzet dilerken \"Yâ Muiz\" diye dua edilir. (Âl-i İmrân 3/26)",
+    "Zillete düşmekten sığınırken \"Yâ Müzil\" diye anılır.",
+    "Duasının işitilmesini dileyen \"Yâ Semî'\" diye niyaz eder.",
+    "Gizli ve açık hâlini Allah'ın gördüğünü bilerek \"Yâ Basîr\" diye dua edilir.",
+    "Anlaşmazlıklarda doğru hükme ulaşmak için \"Yâ Hakem\" diye dua edilir.",
+    "Haksızlığa uğrayan, adalet dilerken \"Yâ Adl\" diye dua edilir.",
+    "İşlerin kolaylaşması ve lütuf için \"Yâ Latîf\" diye dua edilir.",
+    "Gizli kalmış hayrı bilmek ve doğru kararı vermek için \"Yâ Habîr\" diye dua edilir.",
+    "Öfkeye karşı yumuşaklık ve sabır dilerken \"Yâ Halîm\" diye dua edilir.",
+    "Büyük sıkıntılar karşısında \"Yâ Azîm\" diye dua edilir.",
+    "Günahların bağışlanması için \"Yâ Gafûr\" diye dua edilir.",
+    "Şükreden bir kalp ve amellerin kabulü için \"Yâ Şekûr\" diye dua edilir.",
+    "Himmet ve gayretin yükselmesi için \"Yâ Aliyy\" diye dua edilir.",
+    "Dertlerin küçülüp Allah'ın büyüklüğünün kalbe yerleşmesi için \"Yâ Kebîr\" diye dua edilir.",
+    "Her türlü tehlikeden korunmak için \"Yâ Hafîz\" diye dua edilir. (Yûsuf 12/64)",
+    "Bedenin ve kalbin gıdası için \"Yâ Mukît\" diye dua edilir.",
+    "Hesap gününe hazırlık ve Allah'ın yeterliliği için \"Yâ Hasîb\" diye anılır.",
+    "Heybet ve vakar dilerken \"Yâ Celîl\" diye dua edilir.",
+    "İkram ve cömertlik dilerken \"Yâ Kerîm\" diye dua edilir.",
+    "Allah'ın her an gözettiğini bilerek nefsi korumak için \"Yâ Rakîb\" diye anılır.",
+    "Duaların kabulü için \"Yâ Mucîb\" diye dua edilir. (Hûd 11/61)",
+    "Rızkın ve gönlün genişlemesi için \"Yâ Vâsi'\" diye dua edilir.",
+    "Hikmet ve doğru söz dilerken \"Yâ Hakîm\" diye dua edilir.",
+    "Allah'ın sevgisini ve insanlar arasında muhabbet dilerken \"Yâ Vedûd\" diye dua edilir.",
+    "Şeref ve hayırlı ün dilerken \"Yâ Mecîd\" diye dua edilir.",
+    "Ölü kalplerin dirilmesi ve âhirete hazırlık için \"Yâ Bâis\" diye anılır.",
+    "Doğruluğa şahit olunması ve ihlas için \"Yâ Şehîd\" diye dua edilir.",
+    "Hakkı hak olarak görüp ona uymak için \"Yâ Hakk\" diye dua edilir.",
+    "İşlerini Allah'a bırakan \"Yâ Vekîl\" diye dua eder. (Âl-i İmrân 3/173)",
+    "Zayıflık ve güçsüzlük anında \"Yâ Kaviyy\" diye dua edilir.",
+    "Kararlılık ve sebat dilerken \"Yâ Metîn\" diye dua edilir.",
+    "Allah'ın dostluğunu ve yardımını dilerken \"Yâ Veliyy\" diye dua edilir.",
+    "Övülecek ahlâk ve hamd edilecek işler için \"Yâ Hamîd\" diye dua edilir.",
+    "Hiçbir amelin boşa gitmemesi için \"Yâ Muhsî\" diye anılır.",
+    "Yeni ve hayırlı başlangıçlar için \"Yâ Mübdi'\" diye dua edilir.",
+    "Kaybedilen hayrın geri dönmesi için \"Yâ Muîd\" diye dua edilir.",
+    "Kalbin ve bedenin dirilmesi, şifa için \"Yâ Muhyî\" diye dua edilir.",
+    "Güzel bir son (hüsn-i hâtime) dilerken \"Yâ Mümît\" diye anılır.",
+    "Ölü kalbin dirilmesi için \"Yâ Hayy\" diye dua edilir. Hz. Peygamber sıkıntıda \"Yâ Hayyu yâ Kayyûm\" derdi. (Tirmizî, Daavât 91)",
+    "İşlerin ayakta kalması ve düzene girmesi için \"Yâ Kayyûm\" diye dua edilir.",
+    "Aranılan hayrın bulunması için \"Yâ Vâcid\" diye dua edilir.",
+    "Şerefli bir hayat dilerken \"Yâ Mâcid\" diye dua edilir.",
+    "Kalbin dağınıklıktan kurtulup birlenmesi için \"Yâ Vâhid\" diye anılır.",
+    "Hiç kimseye muhtaç olmamak için \"Yâ Samed\" diye dua edilir. (İhlâs 112/2)",
+    "İmkânsız görünen işler için \"Yâ Kâdir\" diye dua edilir.",
+    "Güç yetiremediği işlerde \"Yâ Muktedir\" diye dua edilir.",
+    "Hayırlı işlerde öne geçmek için \"Yâ Mukaddim\" diye dua edilir.",
+    "Şerrin ertelenip uzaklaşması için \"Yâ Muahhir\" diye dua edilir.",
+    "Her işin başında Allah'ı anmak için \"Yâ Evvel\" diye anılır. (Hadîd 57/3)",
+    "Güzel bir son dilerken \"Yâ Âhir\" diye dua edilir.",
+    "Hakkın açığa çıkması için \"Yâ Zâhir\" diye dua edilir.",
+    "Gizli sırların bilinmesi ve iç dünyanın düzelmesi için \"Yâ Bâtın\" diye dua edilir.",
+    "İşlerin güzelce yönetilmesi için \"Yâ Vâlî\" diye dua edilir.",
+    "Kalbin yücelmesi ve aşağılık hâllerden korunmak için \"Yâ Müteâlî\" diye anılır.",
+    "İyilik ve ihsan dilerken \"Yâ Berr\" diye dua edilir.",
+    "Tövbenin kabulü için \"Yâ Tevvâb\" diye dua edilir. (Bakara 2/128)",
+    "Zalimin zulmünden korunmak için \"Yâ Müntakim\" diye anılır.",
+    "Af dilerken \"Yâ Afüvv\" diye dua edilir. (Tirmizî, Daavât 84)",
+    "Şefkat ve merhamet dilerken \"Yâ Raûf\" diye dua edilir.",
+    "Her şeyin asıl sahibine sığınırken \"Yâ Mâlike'l-mülk\" diye dua edilir. (Âl-i İmrân 3/26)",
+    "Dualarda çokça tekrar edin; Hz. Peygamber \"Yâ Ze'l-celâli ve'l-ikrâm\" sözüne devam edin buyurdu. (Tirmizî, Daavât 91)",
+    "Adalet ve hakkaniyet dilerken \"Yâ Muksit\" diye dua edilir.",
+    "Dağılan ailenin, kaybolan şeyin bir araya gelmesi için \"Yâ Câmi'\" diye dua edilir.",
+    "Gönül zenginliği dilerken \"Yâ Ganiyy\" diye dua edilir.",
+    "Fakirlikten kurtulmak için \"Yâ Muğnî\" diye dua edilir.",
+    "Kötülüklerin engellenmesi için \"Yâ Mâni'\" diye dua edilir.",
+    "Zarar ve fayda O'ndandır; zarardan korunmak için \"Yâ Dârr\" diye anılır.",
+    "Fayda ve şifa dilerken \"Yâ Nâfi'\" diye dua edilir.",
+    "Kalbin ve yolun aydınlanması için \"Yâ Nûr\" diye dua edilir. (Nûr 24/35)",
+    "Kendisi ve sevdikleri için hidayet dilerken \"Yâ Hâdî\" diye dua edilir.",
+    "Güzel ve özgün işler için \"Yâ Bedî'\" diye dua edilir.",
+    "Kalıcı iyilikler ve sevaplar için \"Yâ Bâkî\" diye dua edilir.",
+    "Ardında hayırlı bir miras bırakmak için \"Yâ Vâris\" diye dua edilir.",
+    "Doğru yolu bulmak ve isabetli karar için \"Yâ Reşîd\" diye dua edilir.",
+    "Sabır dilerken \"Yâ Sabûr\" diye dua edilir.",
+)
+
+private val GUNLUK_RAW = listOf(
     LibItem("سُبْحَانَ اللّٰهِ", "Sübhânallâh", "Allah her türlü noksanlıktan münezzehtir"),
     LibItem("اَلْحَمْدُ لِلّٰهِ", "Elhamdülillâh", "Hamd yalnızca Allah'adır"),
     LibItem("اَللّٰهُ اَكْبَرُ", "Allâhu Ekber", "Allah en büyüktür"),
@@ -261,7 +453,7 @@ val LIB_GUNLUK = listOf(
     ),
 )
 
-val LIB_SALAVAT = listOf(
+private val SALAVAT_RAW = listOf(
     LibItem("اَللّٰهُمَّ صَلِّ عَلٰى سَيِّدِنَا مُحَمَّدٍ", "Allâhümme salli alâ seyyidinâ Muhammed", "Allah'ım, Efendimiz Muhammed'e salât eyle", target = 100, zikirOkunus = "Salavât"),
     LibItem(
         "اَللّٰهُمَّ صَلِّ عَلٰى مُحَمَّدٍ وَعَلٰى اٰلِ مُحَمَّدٍ",
@@ -277,6 +469,9 @@ val LIB_SALAVAT = listOf(
 )
 
 // Esmâ-ül Hüsnâ, Tirmizî sıralaması: (Arapça, isim, zikir hâli, anlam)
+val LIB_GUNLUK: List<LibItem> by lazy { GUNLUK_RAW.map { it.withFz() } }
+val LIB_SALAVAT: List<LibItem> by lazy { SALAVAT_RAW.map { it.withFz() } }
+
 private val ESMA_RAW = listOf(
     arrayOf("اَللّٰهُ", "Allah", "Allah", "Eşi benzeri olmayan, bütün noksan sıfatlardan münezzeh tek ilah"),
     arrayOf("اَلرَّحْمٰنُ", "Er-Rahmân", "Yâ Rahmân", "Dünyada bütün yaratılmışlara merhamet eden"),
@@ -380,7 +575,7 @@ private val ESMA_RAW = listOf(
 )
 
 val LIB_ESMA: List<LibItem> = ESMA_RAW.mapIndexed { i, a ->
-    LibItem(a[0], "${i + 1}. ${a[1]}", a[3], target = 33, zikirOkunus = a[2])
+    LibItem(a[0], "${i + 1}. ${a[1]}", a[3], fazilet = ESMA_FZ[i], target = 33, zikirOkunus = a[2])
 }
 
 // ───────────── Tarih yardımcıları ─────────────
