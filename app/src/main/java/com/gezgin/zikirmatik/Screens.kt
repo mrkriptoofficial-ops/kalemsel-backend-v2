@@ -14,6 +14,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -153,24 +155,27 @@ fun ZikirlerScreen(st: AppState, back: () -> Unit, go: (Scr) -> Unit, sheet: (Sh
 fun LibraryScreen(st: AppState, back: () -> Unit) {
     val p = LocalPal.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf(L("Sünnet", "Sunnah"), L("Dualar", "Duas"), L("Günlük", "Daily"), L("Salavât", "Salawat"), L("Esmâ", "Names"))
+    val tabs = listOf(L("Sünnet", "Sunnah"), L("Dualar", "Duas"), L("Hisnü'l-Müslim", "Hisn al-Muslim"), L("Günlük", "Daily"), L("Salavât", "Salawat"), L("Esmâ", "Names"))
     ScreenFrame(L("Kütüphane", "Library"), back) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).glass(p, RoundedCornerShape(50)).padding(4.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).glass(p, RoundedCornerShape(50)).padding(4.dp)
+                .horizontalScroll(rememberScrollState()),
         ) {
             tabs.forEachIndexed { i, t ->
                 val on = tab == i
                 Box(
-                    Modifier.weight(1f).heightIn(min = 40.dp).clip(RoundedCornerShape(50))
+                    Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(50))
                         .then(if (on) Modifier.background(p.goldBrush) else Modifier)
-                        .clickable(role = Role.Tab) { tab = i },
+                        .clickable(role = Role.Tab) { tab = i }.padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(t, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = if (on) p.onGold else p.text), maxLines = 1)
                 }
             }
         }
-        AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { t ->
+        AnimatedContent(tab, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "sekme") { tt ->
+            if (tt == 2) { HisnList(st); return@AnimatedContent }
+            val t = if (tt > 2) tt - 1 else tt
             val items = when (t) { 0 -> LIB_SUNNET; 1 -> LIB_DUA; 2 -> LIB_GUNLUK; 3 -> LIB_SALAVAT; else -> LIB_ESMA }
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -222,6 +227,83 @@ fun LibraryScreen(st: AppState, back: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+// ───────────── Hisnü'l-Müslim bölümü ─────────────
+@Composable
+private fun HisnList(st: AppState) {
+    val p = LocalPal.current
+    val ctx = LocalContext.current
+    var data by remember { mutableStateOf<List<HisnChapter>?>(null) }
+    LaunchedEffect(Unit) { data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Hisn.load(ctx) } }
+    val open = remember { mutableStateMapOf<Int, Boolean>() }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Text(
+                L("Saîd b. Ali el-Kahtânî'nin Kur'an ve Sünnetten derlediği dua ve zikirler (Hisnü'l-Müslim). Türkçesi: İsmail Yaşa, tashih: Muhammed Şahin. Bir bölüme dokunarak açın.", "Duas and dhikr from the Quran and Sunnah compiled by Sa'id ibn Ali al-Qahtani (Hisn al-Muslim). Turkish translation by İsmail Yaşa, reviewed by Muhammed Şahin. Tap a chapter to open it."),
+                style = bodyStyle(p.sub).copy(textAlign = TextAlign.Center, fontSize = 13.sp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        val list = data
+        if (list == null) {
+            item { Text(L("Yükleniyor…", "Loading…"), style = bodyStyle(p.sub), modifier = Modifier.fillMaxWidth().padding(16.dp)) }
+        } else {
+            list.forEachIndexed { ci, ch ->
+                val isOpen = open[ci] == true
+                item(key = "c$ci") {
+                    Row(
+                        Modifier.fillMaxWidth().glass(p, RoundedCornerShape(20.dp)).clickable(role = Role.Button) { open[ci] = !isOpen }
+                            .padding(start = 16.dp, end = 10.dp, top = 14.dp, bottom = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${ci + 1}", style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = p.goldText), modifier = Modifier.width(30.dp))
+                        Text(ch.title, style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, lineHeight = 20.sp, color = p.text), modifier = Modifier.weight(1f))
+                        Text("${ch.items.size}", style = TextStyle(fontFamily = Sans, fontSize = 12.sp, color = p.sub), modifier = Modifier.padding(horizontal = 8.dp))
+                        Glyph(if (isOpen) G.UP else G.DOWN, p.goldText, 18.dp)
+                    }
+                }
+                if (isOpen) items(ch.items, key = { "h${it.n}" }) { h -> HisnCard(st, ch, h) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HisnCard(st: AppState, ch: HisnChapter, h: HisnItem) {
+    val p = LocalPal.current
+    val lib = LibItem(h.ar, "Hisnü'l-Müslim ${h.n}", h.tr, h.src, h.count, ch.title)
+    val have = st.hasLib(lib)
+    Row(
+        Modifier.fillMaxWidth().padding(start = 12.dp).glass(p, RoundedCornerShape(22.dp)).padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (h.count > 1) "No. ${h.n} · ${h.count} ×" else "No. ${h.n}",
+                style = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 11.5.sp, letterSpacing = 1.sp, color = p.goldText),
+            )
+            Spacer(Modifier.height(4.dp))
+            if (h.ar.isNotBlank()) Text(
+                h.ar,
+                style = TextStyle(fontFamily = Arabic, fontSize = 21.sp, lineHeight = 36.sp, color = p.text, textDirection = TextDirection.Rtl, textAlign = TextAlign.End),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(h.tr, style = bodyStyle(p.text).copy(fontSize = 13.5.sp, lineHeight = 20.sp))
+            if (h.src.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(h.src, style = TextStyle(fontFamily = Sans, fontSize = 12.sp, lineHeight = 17.sp, color = p.sub))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        if (have) GlyphButton(G.CHECK, L("Eklendi", "Added"), 40.dp, bordered = false, tint = p.sub) {}
+        else GlyphButton(G.PLUS, L("Zikirlerime ekle", "Add to my dhikr"), 40.dp) { st.addFromLib(lib) }
     }
 }
 
@@ -617,7 +699,7 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
             item {
                 SectionTitle(L("Hakkında", "About"))
                 Text(
-                    L("Zikirmatik 4.4\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.4\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
+                    L("Zikirmatik 4.5\nYazı tipleri: Amiri, Cormorant Garamond, Manrope (SIL Open Font License).", "Zikirmatik 4.5\nFonts: Amiri, Cormorant Garamond, Manrope (SIL Open Font License)."),
                     style = bodyStyle(p.sub).copy(fontSize = 12.5.sp),
                 )
                 Spacer(Modifier.height(16.dp))

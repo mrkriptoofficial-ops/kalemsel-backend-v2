@@ -584,6 +584,31 @@ val LIB_ESMA: List<LibItem> = ESMA_RAW.mapIndexed { i, a ->
     LibItem(a[0], "${i + 1}. ${a[1]}", a[3], fazilet = ESMA_FZ[i], target = 33, zikirOkunus = a[2])
 }
 
+// ───────────── Hisnü'l-Müslim (assets/hisn.json) ─────────────
+class HisnItem(val n: Int, val ar: String, val tr: String, val src: String, val count: Int)
+class HisnChapter(val title: String, val items: List<HisnItem>)
+
+/** Hisnü'l-Müslim: 132 bölüm, 267 dua ve zikir. İlk açılışta bir kez okunur. */
+object Hisn {
+    @Volatile private var cache: List<HisnChapter>? = null
+
+    fun load(ctx: android.content.Context): List<HisnChapter> = cache ?: synchronized(this) {
+        cache ?: parse(ctx).also { cache = it }
+    }
+
+    private fun parse(ctx: android.content.Context): List<HisnChapter> = runCatching {
+        val a = JSONArray(ctx.assets.open("hisn.json").bufferedReader(Charsets.UTF_8).use { it.readText() })
+        (0 until a.length()).map { i ->
+            val c = a.getJSONObject(i)
+            val it = c.getJSONArray("i")
+            HisnChapter(c.getString("t"), (0 until it.length()).map { j ->
+                val o = it.getJSONObject(j)
+                HisnItem(o.getInt("n"), o.optString("ar"), o.optString("tr"), o.optString("src"), o.optInt("c", 1).coerceAtLeast(1))
+            })
+        }
+    }.getOrDefault(emptyList())
+}
+
 // ───────────── Tarih yardımcıları ─────────────
 fun dayKey(d: LocalDate = LocalDate.now()): String = d.toString()
 
