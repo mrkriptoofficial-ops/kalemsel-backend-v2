@@ -1,0 +1,44 @@
+{
+  "name": "Emin Tech",
+  "short_name": "Emin Tech",
+  "description": "Emin Tech – Professional Phone Repair. Telefon satışı, aksesuar ve teknik servis.",
+  "lang": "tr",
+  "start_url": "./#vitrin",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0B0D",
+  "theme_color": "#0B0B0D",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Kasa",
+      "url": "./#kasa"
+    },
+    {
+      "name": "Tamir Masası",
+      "url": "./#tamir"
+    },
+    {
+      "name": "Tamir Takip",
+      "url": "./#takip"
+    }
+  ]
+}
