@@ -253,7 +253,7 @@ window.ENCOURAGE = [
   "s": "Buhârî"
  },
  {
-  "t": "Sabır, nurdur.",
+  "t": "Sabır aydınlıktır.",
   "s": "Müslim"
  },
  {
@@ -289,10 +289,6 @@ window.ENCOURAGE = [
   "s": "Tirmizî, Ebû Dâvûd"
  },
  {
-  "t": "Tebessümün de sadakadır.",
-  "s": "Tirmizî"
- },
- {
   "t": "Her kim Allah'a ve ahiret gününe inanıyorsa, ya hayır söylesin ya da sussun.",
   "s": "Buhârî, Müslim"
  },
@@ -313,10 +309,6 @@ window.ENCOURAGE = [
   "s": "Müslim"
  },
  {
-  "t": "Günahından tövbe eden kimse, hiç günah işlememiş gibidir.",
-  "s": "İbn Mâce"
- },
- {
   "t": "Kim gece uyanıp 'lâ ilâhe illallâh' der ve dua ederse, duası kabul olunur.",
   "s": "Buhârî"
  },
@@ -331,10 +323,6 @@ window.ENCOURAGE = [
  {
   "t": "Allah'ı zikredenle zikretmeyen, diri ile ölü gibidir.",
   "s": "Buhârî, Müslim"
- },
- {
-  "t": "Namaz dinin direğidir.",
-  "s": "Tirmizî"
  },
  {
   "t": "Ey insanlar, selamı yayın, yemek yedirin, akrabanızı ziyaret edin ve insanlar uyurken namaz kılın; cennete selametle girersiniz.",
@@ -353,20 +341,12 @@ window.ENCOURAGE = [
   "s": "Buhârî, Müslim"
  },
  {
-  "t": "Kim istiğfarı devam ettirirse, Allah onun her darlığından bir çıkış yolu, her kederinden bir ferahlık yaratır.",
-  "s": "Ebû Dâvûd"
- },
- {
   "t": "Ey Muâz! Her namazın ardından: Allah'ım, seni anmama, sana şükretmeme ve sana güzel ibadet etmeme yardım et, demeyi ihmal etme.",
   "s": "Ebû Dâvûd, Nesâî"
  },
  {
   "t": "Allah'ım! Sen selamsın, selam sendendir; ey celâl ve ikram sahibi, bereketlisin.",
   "s": "Müslim"
- },
- {
-  "t": "Kim yemek yedikten sonra Elhamdülillâhillezî at'amenî hâzâ... diyerek hamd ederse, geçmiş günahları bağışlanır.",
-  "s": "Tirmizî"
  },
  {
   "t": "Kim akşamleyin üç kez A'ûzü bi kelimâtillâhi't-tâmmâti min şerri mâ halak derse, o geceki zararlardan korunur.",
@@ -385,11 +365,7 @@ window.ENCOURAGE = [
   "s": "Buhârî, Müslim"
  },
  {
-  "t": "Kişinin kendisini ilgilendirmeyen şeyi terk etmesi, Müslümanlığının güzelliğindendir.",
-  "s": "Tirmizî"
- },
- {
-  "t": "Allah'ın, merhamet etmeyen kullarına merhamet etmediği gibi, merhamet etmeyene merhamet olunmaz.",
+  "t": "Merhamet etmeyene merhamet olunmaz.",
   "s": "Buhârî, Müslim"
  },
  {
@@ -407,5 +383,21 @@ window.ENCOURAGE = [
  {
   "t": "İnsanlara teşekkür etmeyen, Allah'a da şükretmiş olmaz.",
   "s": "Ebû Dâvûd, Tirmizî"
+ },
+ {
+  "t": "Rabbim! Göğsümü genişlet ve işimi kolaylaştır.",
+  "s": "Tâhâ 25-26"
+ },
+ {
+  "t": "Rabbimiz! Günahlarımızı ve işimizdeki aşırılıklarımızı bağışla, ayaklarımızı sabit kıl ve kâfirler topluluğuna karşı bize yardım et.",
+  "s": "Âl-i İmrân 147"
+ },
+ {
+  "t": "Benim başarım yalnız Allah'ın yardımıyladır; O'na tevekkül ettim ve O'na yönelirim.",
+  "s": "Hûd 88"
+ },
+ {
+  "t": "Allah'ım! Senden hidayet, takva, iffet ve gönül zenginliği isterim.",
+  "s": "Müslim"
  }
 ];
