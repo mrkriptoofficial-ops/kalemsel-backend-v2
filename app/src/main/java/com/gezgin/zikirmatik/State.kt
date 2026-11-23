@@ -62,6 +62,9 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     var shakeKey by mutableIntStateOf(0)
     var cardDir by mutableIntStateOf(1)
 
+    /** Hedef tamamlanınca gösterilen (metin, kaynak) çifti; kısa süre sonra temizlenir. */
+    var encourage by mutableStateOf<Pair<String, String>?>(null)
+
     val snack = SnackbarHostState()
     private var lastTap = 0L
 
@@ -122,7 +125,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
             val v = virds.firstOrNull { it.id == s.virdId }
             val step = v?.steps?.getOrNull(s.step)
             if (v == null || step == null) { endSession(); return }
-            when (val r = Engine.tapStep(s.count, step.target, settings.milestone)) {
+            when (val r = Engine.tapStep(s.count, step.target, 0)) {
                 is Engine.Tap.Counted -> {
                     session = s.copy(count = r.count)
                     repo.saveSession(session)
@@ -142,14 +145,14 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
         }
 
         val z = current
-        when (val r = Engine.tapFree(z.count, z.target, settings.stopAtTarget, settings.milestone)) {
+        when (val r = Engine.tapFree(z.count, z.target, settings.stopAtTarget, 0)) {
             Engine.Tap.Blocked -> { shakeKey++; fb.error(settings.haptic) }
             Engine.Tap.Ignored -> Unit
             is Engine.Tap.Counted -> {
                 replace(z.copy(count = r.count))
                 addHistory(1)
                 feedback(r)
-                if (r.completed) { addLap(z.okunus, 1); celebrateKey++ } else pulseKey++
+                if (r.completed) { addLap(z.okunus, 1); celebrateKey++; encourage = encouragementFor(z.okunus) } else pulseKey++
             }
         }
     }

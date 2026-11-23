@@ -36,6 +36,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
@@ -228,6 +236,27 @@ fun ZikirApp(act: MainActivity) {
                             askNotify = askNotify,
                         )
                         Scr.ODAK -> FocusScreen(st) { screen = Scr.SAYAC }
+                    }
+                }
+                val enc = st.encourage
+                LaunchedEffect(enc) { if (enc != null) { delay(5000); st.encourage = null } }
+                AnimatedVisibility(
+                    visible = enc != null,
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 150.dp),
+                    enter = fadeIn(tween(300)), exit = fadeOut(tween(400)),
+                ) {
+                    // Yalnızca görsel: dokunma olaylarını yakalamaz, zikre engel olmaz
+                    enc?.let { (text, src) ->
+                        Column(
+                            Modifier
+                                .background(Color(0xE6121010), RoundedCornerShape(14.dp))
+                                .border(1.dp, Color(0x59EBCB86), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(text, color = Color(0xFFF4E7C6), fontSize = 14.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)
+                            Text(src, color = Color(0xFFEBCB86), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                        }
                     }
                 }
                 SnackbarHost(st.snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) { LuxSnack(it) }

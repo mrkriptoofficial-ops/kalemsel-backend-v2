@@ -587,6 +587,32 @@ function render(dir) {
   kick();
 }
 
+
+// ───────────── Teşvik kartı (hedef tamamlanınca, zikre engel olmadan) ─────────────
+const ENCOURAGE = [
+  { k: /subhan|sübhan/, t: 'Sübhânallâhi ve bihamdihî, Sübhânallâhi’l-azîm.', s: 'Buhârî, Müslim: Bu iki kelime dile hafiftir, mizanda ağırdır, Rahmân’a sevimlidir.' },
+  { k: /elhamd|hamd/, t: 'Temizlik imanın yarısıdır. Elhamdülillah mizanı doldurur.', s: 'Müslim' },
+  { k: /ekber/, t: 'Sübhânallah, elhamdülillah, lâ ilâhe illallah ve Allahu ekber; bunlardan hangisiyle başlarsan başla zarar etmezsin.', s: 'Müslim' },
+  { k: /ilahe|ilah/, t: 'Bil ki Allah’tan başka ilah yoktur.', s: 'Muhammed 19' },
+  { k: /estag|istig|istigf/, t: 'Rabbinize istiğfar edin; çünkü O çok bağışlayıcıdır.', s: 'Nûh 10' },
+  { k: /salav|salli|salat/, t: 'Bana bir kez salavat getiren kimseye Allah on rahmet eder.', s: 'Müslim' },
+  { k: /esma|isim/, t: 'Allah’ın en güzel isimleri vardır; onlarla O’na dua edin.', s: 'A’râf 180' },
+  { k: /dua|rabbena/, t: 'Dua ibadetin özüdür.', s: 'Tirmizî, Ebû Dâvûd' },
+  { k: /kur|hisn/, t: 'Kim Allah’ın Kitabı’ndan bir harf okursa, ona bir sevap vardır.', s: 'Tirmizî' },
+];
+const ENCOURAGE_DEFAULT = { t: 'Siz beni anın ki ben de sizi anayım.', s: 'Bakara 152' };
+function encourageFor(name) {
+  const n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return ENCOURAGE.find((e) => e.k.test(n)) || ENCOURAGE_DEFAULT;
+}
+let encT = 0;
+function showEncourage(name) {
+  const e = encourageFor(name), box = $('#encourage');
+  $('#encT').textContent = e.t; $('#encS').textContent = e.s;
+  box.classList.add('on'); clearTimeout(encT);
+  encT = setTimeout(() => box.classList.remove('on'), 5000);
+}
+
 // ───────────── Sayma kuralları ─────────────
 let lastTap = 0;
 function bumpDay(n) { const k = dayKey(); S.history[k] = Math.max(0, (S.history[k] || 0) + n); S.total = Math.max(0, S.total + n); }
@@ -594,16 +620,16 @@ function tap() {
   const now = performance.now();
   if (now - lastTap < 70) return; lastTap = now;
   Audio.unlock(); keepAwake();
-  const d = disp(), ms = S.settings.milestone;
+  const d = disp();
   let n, completed, milestone;
   if (d.vird) {
     if (d.count >= d.target) return;
-    n = d.count + 1; completed = n >= d.target; milestone = ms > 0 && n % ms === 0 && n < d.target;
+    n = d.count + 1; completed = n >= d.target; milestone = false;
     S.session.count = n;
   } else {
     const z = sel();
     if (S.settings.stopAtTarget && z.c >= z.t) { haptic('error'); toast('Hedefe ulaşıldı'); return; }
-    n = z.c + 1; completed = n % z.t === 0; milestone = ms > 0 && n % ms === 0 && n % z.t !== 0;
+    n = z.c + 1; completed = n % z.t === 0; milestone = false;
     z.c = n; if (completed) S.laps[z.id] = (S.laps[z.id] || 0) + 1;
   }
   bumpDay(1);
@@ -615,6 +641,7 @@ function tap() {
   anim.pulseT0 = now;
   if (completed) anim.burstT0 = now + PULL_MS;
   renderNum(true); renderStats(); save(); kick();
+  if (completed && !d.vird) showEncourage(d.ok);
   if (completed && d.vird) {
     const s0 = S.session;
     setTimeout(() => {
@@ -839,7 +866,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.7</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.8</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
