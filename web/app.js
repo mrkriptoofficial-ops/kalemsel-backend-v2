@@ -589,20 +589,23 @@ function render(dir) {
 
 
 // ───────────── Teşvik kartı (hedef tamamlanınca, zikre engel olmadan) ─────────────
-// Havuz: web/encourage.js (window.ENCOURAGE). Tüm havuz bitmeden tekrar etmez, sonra yeniden karıştırılır.
-let encDeck = [], encLast = null;
+// Havuz: web/encourage.js (window.ENCOURAGE). Tüm havuz bitmeden tekrar etmez; sıra localStorage'da kalır.
+const ENC_KEY = 'zk_enc';
+function encState() { try { return JSON.parse(localStorage.getItem(ENC_KEY)) || { deck: [], last: -1 }; } catch { return { deck: [], last: -1 }; } }
 function nextEncourage() {
   const pool = window.ENCOURAGE || [];
   if (!pool.length) return null;
-  if (!encDeck.length) {
-    encDeck = pool.slice();
-    for (let i = encDeck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [encDeck[i], encDeck[j]] = [encDeck[j], encDeck[i]]; }
-    if (encDeck.length > 1 && encDeck[encDeck.length - 1] === encLast) [encDeck[0], encDeck[encDeck.length - 1]] = [encDeck[encDeck.length - 1], encDeck[0]];
+  const st = encState();
+  let deck = (st.deck || []).filter((i) => Number.isInteger(i) && i >= 0 && i < pool.length);
+  if (!deck.length) {
+    deck = pool.map((_, i) => i);
+    for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    if (deck.length > 1 && deck[0] === st.last) deck.push(deck.shift());
   }
-  encLast = encDeck.pop();
-  return encLast;
+  const idx = deck.shift();
+  try { localStorage.setItem(ENC_KEY, JSON.stringify({ deck, last: idx })); } catch {}
+  return pool[idx];
 }
-let encT = 0;
 function showEncourage() {
   const e = nextEncourage(), box = $('#encourage');
   if (!e) return;

@@ -64,7 +64,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     /** Hedef tamamlanınca gösterilen (metin, kaynak) çifti; kısa süre sonra temizlenir. */
     var encourage by mutableStateOf<Pair<String, String>?>(null)
-    private val encPicker = EncouragePicker()
+    private val encPicker = EncouragePicker(ctx.applicationContext.getSharedPreferences("zikirmatik", Context.MODE_PRIVATE))
 
     val snack = SnackbarHostState()
     private var lastTap = 0L

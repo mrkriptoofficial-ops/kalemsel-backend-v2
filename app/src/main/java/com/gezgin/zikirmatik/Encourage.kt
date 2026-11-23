@@ -1,5 +1,7 @@
 package com.gezgin.zikirmatik
 
+import android.content.SharedPreferences
+
 // Otomatik üretildi: tools/gen_encourage.py — elle değiştirmeyin.
 /** Hedef tamamlanınca gösterilen (metin, kaynak) havuzu. */
 val ENCOURAGE_ALL: List<Pair<String, String>> = listOf(
@@ -109,18 +111,34 @@ val ENCOURAGE_ALL: List<Pair<String, String>> = listOf(
 
 /**
  * Havuzu karıştırıp tüketir; tüm havuz bitmeden aynı kayıt tekrar gelmez.
- * Havuz bitince yeniden karıştırır ve bir öncekiyle aynı kaydı başa koymaz.
+ * Sıra ve kalan kayıtlar SharedPreferences'ta tutulur: uygulama yeniden açılsa da devam eder.
+ * Havuz bitince yeniden karıştırır; önceki kayıt başa gelmez.
  */
-class EncouragePicker(private val pool: List<Pair<String, String>> = ENCOURAGE_ALL) {
-    private var deck = ArrayDeque<Pair<String, String>>()
-    private var last: Pair<String, String>? = null
+class EncouragePicker(
+    private val prefs: SharedPreferences,
+    private val pool: List<Pair<String, String>> = ENCOURAGE_ALL,
+) {
+    private val kDeck = "enc_deck"
+    private val kLast = "enc_last"
+
+    private fun load(): MutableList<Int> =
+        (prefs.getString(kDeck, "") ?: "").split(',').mapNotNull { it.toIntOrNull() }
+            .filter { it in pool.indices }.toMutableList()
+
+    private fun save(deck: List<Int>, last: Int) {
+        prefs.edit().putString(kDeck, deck.joinToString(",")).putInt(kLast, last).apply()
+    }
 
     fun next(): Pair<String, String> {
+        if (pool.isEmpty()) return "" to ""
+        val deck = load()
+        val last = prefs.getInt(kLast, -1)
         if (deck.isEmpty()) {
-            val fresh = pool.shuffled().toMutableList()
-            if (fresh.size > 1 && fresh.first() == last) fresh.add(fresh.removeAt(0))
-            deck = ArrayDeque(fresh)
+            deck.addAll(pool.indices.shuffled())
+            if (deck.size > 1 && deck.first() == last) deck.add(deck.removeAt(0))
         }
-        return deck.removeFirst().also { last = it }
+        val idx = deck.removeAt(0)
+        save(deck, idx)
+        return pool[idx]
     }
 }
