@@ -64,6 +64,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     /** Hedef tamamlanınca gösterilen (metin, kaynak) çifti; kısa süre sonra temizlenir. */
     var encourage by mutableStateOf<Pair<String, String>?>(null)
+    private val encPicker = EncouragePicker()
 
     val snack = SnackbarHostState()
     private var lastTap = 0L
@@ -152,7 +153,7 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
                 replace(z.copy(count = r.count))
                 addHistory(1)
                 feedback(r)
-                if (r.completed) { addLap(z.okunus, 1); celebrateKey++; encourage = encouragementFor(z.okunus) } else pulseKey++
+                if (r.completed) { addLap(z.okunus, 1); celebrateKey++; encourage = encPicker.next() } else pulseKey++
             }
         }
     }

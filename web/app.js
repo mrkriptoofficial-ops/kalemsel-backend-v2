@@ -589,25 +589,23 @@ function render(dir) {
 
 
 // ───────────── Teşvik kartı (hedef tamamlanınca, zikre engel olmadan) ─────────────
-const ENCOURAGE = [
-  { k: /subhan|sübhan/, t: 'Sübhânallâhi ve bihamdihî, Sübhânallâhi’l-azîm.', s: 'Buhârî, Müslim: Bu iki kelime dile hafiftir, mizanda ağırdır, Rahmân’a sevimlidir.' },
-  { k: /elhamd|hamd/, t: 'Temizlik imanın yarısıdır. Elhamdülillah mizanı doldurur.', s: 'Müslim' },
-  { k: /ekber/, t: 'Sübhânallah, elhamdülillah, lâ ilâhe illallah ve Allahu ekber; bunlardan hangisiyle başlarsan başla zarar etmezsin.', s: 'Müslim' },
-  { k: /ilahe|ilah/, t: 'Bil ki Allah’tan başka ilah yoktur.', s: 'Muhammed 19' },
-  { k: /estag|istig|istigf/, t: 'Rabbinize istiğfar edin; çünkü O çok bağışlayıcıdır.', s: 'Nûh 10' },
-  { k: /salav|salli|salat/, t: 'Bana bir kez salavat getiren kimseye Allah on rahmet eder.', s: 'Müslim' },
-  { k: /esma|isim/, t: 'Allah’ın en güzel isimleri vardır; onlarla O’na dua edin.', s: 'A’râf 180' },
-  { k: /dua|rabbena/, t: 'Dua ibadetin özüdür.', s: 'Tirmizî, Ebû Dâvûd' },
-  { k: /kur|hisn/, t: 'Kim Allah’ın Kitabı’ndan bir harf okursa, ona bir sevap vardır.', s: 'Tirmizî' },
-];
-const ENCOURAGE_DEFAULT = { t: 'Siz beni anın ki ben de sizi anayım.', s: 'Bakara 152' };
-function encourageFor(name) {
-  const n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  return ENCOURAGE.find((e) => e.k.test(n)) || ENCOURAGE_DEFAULT;
+// Havuz: web/encourage.js (window.ENCOURAGE). Tüm havuz bitmeden tekrar etmez, sonra yeniden karıştırılır.
+let encDeck = [], encLast = null;
+function nextEncourage() {
+  const pool = window.ENCOURAGE || [];
+  if (!pool.length) return null;
+  if (!encDeck.length) {
+    encDeck = pool.slice();
+    for (let i = encDeck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [encDeck[i], encDeck[j]] = [encDeck[j], encDeck[i]]; }
+    if (encDeck.length > 1 && encDeck[encDeck.length - 1] === encLast) [encDeck[0], encDeck[encDeck.length - 1]] = [encDeck[encDeck.length - 1], encDeck[0]];
+  }
+  encLast = encDeck.pop();
+  return encLast;
 }
 let encT = 0;
-function showEncourage(name) {
-  const e = encourageFor(name), box = $('#encourage');
+function showEncourage() {
+  const e = nextEncourage(), box = $('#encourage');
+  if (!e) return;
   $('#encT').textContent = e.t; $('#encS').textContent = e.s;
   box.classList.add('on'); clearTimeout(encT);
   encT = setTimeout(() => box.classList.remove('on'), 5000);
@@ -641,7 +639,7 @@ function tap() {
   anim.pulseT0 = now;
   if (completed) anim.burstT0 = now + PULL_MS;
   renderNum(true); renderStats(); save(); kick();
-  if (completed && !d.vird) showEncourage(d.ok);
+  if (completed && !d.vird) showEncourage();
   if (completed && d.vird) {
     const s0 = S.session;
     setTimeout(() => {
@@ -866,7 +864,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.8</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.9</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
