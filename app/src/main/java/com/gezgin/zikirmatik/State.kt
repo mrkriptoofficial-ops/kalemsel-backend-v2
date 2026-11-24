@@ -218,9 +218,15 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     private fun onVoice(text: String) {
         if (!voiceOn) return
+        val heard = voiceKey(text)
+        // Söylenen başka bir zikrin adıysa önce onu ana sayfaya getir (en uzun eşleşme kazanır)
+        val hit = zikirs
+            .filter { voiceKey(it.okunus).length >= 2 && heard.contains(voiceKey(it.okunus)) }
+            .maxByOrNull { voiceKey(it.okunus).length }
+        if (hit != null && hit.id != selId) select(hit.id)
         val target = voiceKey(current.okunus)
         if (target.length < 2) return
-        val n = Regex(Regex.escape(target)).findAll(voiceKey(text)).count()
+        val n = Regex(Regex.escape(target)).findAll(heard).count()
         if (n > 0) voiceAdd(n)
     }
 
