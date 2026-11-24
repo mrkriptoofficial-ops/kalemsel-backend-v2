@@ -179,6 +179,12 @@ fun ZikirApp(act: MainActivity) {
         }
         Unit
     }
+    val micL = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) st.setVoice(true) else st.toast(L("Mikrofon izni verilmedi; sesli sayma kapalı", "Microphone permission denied; voice counting is off"))
+    }
+    LaunchedEffect(Unit) { st.requestMic = { micL.launch(Manifest.permission.RECORD_AUDIO) } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { st.resumeVoice() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { st.pauseVoice() }
     val notifyL = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) {
             st.update { it.copy(remMorning = false, remEvening = false) }

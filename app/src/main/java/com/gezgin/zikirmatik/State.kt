@@ -2,6 +2,9 @@ package com.gezgin.zikirmatik
 
 import android.content.Context
 import android.os.SystemClock
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -64,6 +67,11 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     /** Hedef tamamlanınca gösterilen (metin, kaynak) çifti; kısa süre sonra temizlenir. */
     var encourage by mutableStateOf<Pair<String, String>?>(null)
+    /** Sesli sayma çalışıyor mu (çalışma anında; uygulama açılışında kapalı). */
+    var voiceOn by mutableStateOf(false)
+    /** Mikrofon izni istemek için MainActivity tarafından verilir. */
+    var requestMic: (() -> Unit)? = null
+    private val voice = VoiceCounter(ctx) { onVoice(it) }
     private val encPicker = EncouragePicker(ctx.applicationContext.getSharedPreferences("zikirmatik", Context.MODE_PRIVATE))
 
     val snack = SnackbarHostState()
@@ -190,6 +198,53 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
 
     fun lapsToday(): Map<String, Int> = laps[dayKey()] ?: emptyMap()
     fun lapsTotal(): Int = laps.values.sumOf { it.values.sum() }
+
+    fun micGranted(): Boolean =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    /** Ayar anahtarı: izin varsa açar, yoksa izin ister. */
+    fun requestVoice(on: Boolean) {
+        if (!on) { setVoice(false); return }
+        if (micGranted()) setVoice(true) else requestMic?.invoke()
+    }
+
+    fun setVoice(on: Boolean) {
+        voiceOn = on && micGranted()
+        if (voiceOn) voice.start() else voice.stop()
+    }
+
+    fun pauseVoice() { voice.stop() }
+    fun resumeVoice() { if (voiceOn) voice.start() }
+
+    private fun onVoice(text: String) {
+        if (!voiceOn) return
+        val target = voiceKey(current.okunus)
+        if (target.length < 2) return
+        val n = Regex(Regex.escape(target)).findAll(voiceKey(text)).count()
+        if (n > 0) voiceAdd(n)
+    }
+
+    /** Tanıma metnini karşılaştırmak için: küçük harf, aksansız, yalnızca a-z ve 0-9. */
+    private fun voiceKey(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}"), "").replace("ı", "i").replace(Regex("[^a-z0-9]"), "")
+
+    /** Sesle sayılan n tekrar: hedef kuralına uyar, tamamlanınca teşvik kartı çıkar. */
+    private fun voiceAdd(n: Int) {
+        repeat(n) {
+            val z = current
+            when (val r = Engine.tapFree(z.count, z.target, settings.stopAtTarget, 0)) {
+                is Engine.Tap.Counted -> {
+                    replace(z.copy(count = r.count))
+                    addHistory(1)
+                    if (r.completed) { addLap(z.okunus, 1); celebrateKey++; encourage = encPicker.next() }
+                }
+                else -> return@repeat
+            }
+        }
+        pulseKey++
+        fb.tap(settings.haptic)
+    }
 
     fun undo() {
         val s = session

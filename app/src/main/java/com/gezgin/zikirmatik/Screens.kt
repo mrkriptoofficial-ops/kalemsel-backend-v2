@@ -668,6 +668,13 @@ fun SettingsScreen(st: AppState, back: () -> Unit, onExport: () -> Unit, onImpor
                         LuxSwitch(s.slideSound) { v -> st.update { it.copy(slideSound = v) }; st.fb.pull(s.soundType, SOUND_VOLUMES[s.soundVol], v) }
                     }
                     Spacer(Modifier.height(10.dp))
+                    SettingRow(
+                        L("Sesli sayma", "Voice counting"),
+                        L("Zikri sesli okuyunca sayar. Yalnızca uygulama açıkken dinler; ses cihazda işlenir.", "Counts when you say the dhikr aloud. Listens only while the app is open; audio is processed on the device."),
+                    ) {
+                        LuxSwitch(st.voiceOn) { v -> st.requestVoice(v) }
+                    }
+                    Spacer(Modifier.height(10.dp))
                     GhostButton(L("Hedef zilini dinle", "Play target chime"), Modifier.fillMaxWidth(), G.BELL) { st.fb.chime(SOUND_VOLUMES[s.soundVol]) }
                     Spacer(Modifier.height(4.dp))
                 }
