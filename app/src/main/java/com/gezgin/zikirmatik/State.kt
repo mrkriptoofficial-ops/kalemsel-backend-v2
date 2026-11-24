@@ -216,24 +216,78 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     fun pauseVoice() { voice.stop() }
     fun resumeVoice() { if (voiceOn) voice.start() }
 
-    /** Bir zikir için tanınabilecek adlar: tam okunuş ve ilk kelimenin başı (tanıyıcı uzun Arapça ifadeleri kısaltabilir). */
-    private fun voiceNames(z: Zikir): List<String> {
+    /** Tanınan metni kelimelere ayırır: küçük harf, aksansız, yalnızca a-z ve 0-9. */
+    private fun words(s: String): List<String> =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}"), "").replace("ı", "i")
+            .split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+
+    /** Düzenleme uzaklığı (Levenshtein): tek harf hatası = 1. */
+    private fun editDistance(a: String, b: String): Int {
+        val d = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            var prev = d[0]
+            d[0] = i
+            for (j in 1..b.length) {
+                val tmp = d[j]
+                d[j] = minOf(d[j] + 1, d[j - 1] + 1, prev + if (a[i - 1] == b[j - 1]) 0 else 1)
+                prev = tmp
+            }
+        }
+        return d[b.length]
+    }
+
+    /** Bir zikrin tanınabilecek adları: tam okunuş ve ilk kelime (uzun Arapça ifadeler kısaltılabilir). */
+    private fun nameCandidates(z: Zikir): List<String> {
         val full = voiceKey(z.okunus)
-        val first = voiceKey(z.okunus.trim().substringBefore(' ')).take(7)
+        val first = voiceKey(z.okunus.trim().substringBefore(' '))
         return listOf(full, first).filter { it.length >= 4 }.distinct()
+    }
+
+    /** Ad uzunluğunun dörtte biri kadar harf hatasına izin verilir (en az 1). */
+    private fun fuzzyOk(window: String, name: String): Boolean =
+        editDistance(window, name) <= maxOf(1, name.length / 4)
+
+    /** Konuşmadaki en iyi eşleşme puanı (0 = birebir, küçük olan daha yakın). Eşleşme yoksa null. */
+    private fun voiceScore(tokens: List<String>, z: Zikir): Double? {
+        var best: Double? = null
+        for (name in nameCandidates(z)) for (i in tokens.indices) for (k in 1..3) {
+            if (i + k > tokens.size) break
+            val w = tokens.subList(i, i + k).joinToString("")
+            if (fuzzyOk(w, name)) {
+                val score = editDistance(w, name).toDouble() / name.length
+                if (best == null || score < best) best = score
+            }
+        }
+        return best
+    }
+
+    /** Seçili zikir konuşmada kaç kez geçti (büyük parçalar önce, kelimeler tekrar sayılmaz). */
+    private fun countVoice(tokens: List<String>, z: Zikir): Int {
+        val names = nameCandidates(z)
+        var i = 0
+        var n = 0
+        while (i < tokens.size) {
+            var step = 0
+            for (k in 3 downTo 1) {
+                if (i + k > tokens.size) continue
+                val w = tokens.subList(i, i + k).joinToString("")
+                if (names.any { fuzzyOk(w, it) }) { step = k; break }
+            }
+            if (step > 0) { n++; i += step } else i++
+        }
+        return n
     }
 
     private fun onVoice(text: String) {
         if (!voiceOn) return
         toast(L("Duyulan: ", "Heard: ") + text)
-        val heard = voiceKey(text)
-        // Söylenen başka bir zikrin adıysa önce onu ana sayfaya getir (en uzun eşleşme kazanır)
-        val hit = zikirs.mapNotNull { z ->
-            voiceNames(z).filter { heard.contains(it) }.maxByOrNull { it.length }?.let { z to it.length }
-        }.maxByOrNull { it.second }?.first
+        val tokens = words(text)
+        if (tokens.isEmpty()) return
+        // En yakın zikri seç; başka bir zikirse ana sayfaya getir
+        val hit = zikirs.mapNotNull { z -> voiceScore(tokens, z)?.let { z to it } }.minByOrNull { it.second }?.first
         if (hit != null && hit.id != selId) select(hit.id)
-        val name = voiceNames(current).filter { heard.contains(it) }.maxByOrNull { it.length } ?: return
-        val n = Regex(Regex.escape(name)).findAll(heard).count()
+        val n = countVoice(tokens, current)
         if (n > 0) voiceAdd(n)
     }
 
