@@ -216,17 +216,24 @@ class AppState(private val ctx: Context, val repo: Repo, val fb: Feedback, priva
     fun pauseVoice() { voice.stop() }
     fun resumeVoice() { if (voiceOn) voice.start() }
 
+    /** Bir zikir için tanınabilecek adlar: tam okunuş ve ilk kelimenin başı (tanıyıcı uzun Arapça ifadeleri kısaltabilir). */
+    private fun voiceNames(z: Zikir): List<String> {
+        val full = voiceKey(z.okunus)
+        val first = voiceKey(z.okunus.trim().substringBefore(' ')).take(7)
+        return listOf(full, first).filter { it.length >= 4 }.distinct()
+    }
+
     private fun onVoice(text: String) {
         if (!voiceOn) return
+        toast(L("Duyulan: ", "Heard: ") + text)
         val heard = voiceKey(text)
         // Söylenen başka bir zikrin adıysa önce onu ana sayfaya getir (en uzun eşleşme kazanır)
-        val hit = zikirs
-            .filter { voiceKey(it.okunus).length >= 2 && heard.contains(voiceKey(it.okunus)) }
-            .maxByOrNull { voiceKey(it.okunus).length }
+        val hit = zikirs.mapNotNull { z ->
+            voiceNames(z).filter { heard.contains(it) }.maxByOrNull { it.length }?.let { z to it.length }
+        }.maxByOrNull { it.second }?.first
         if (hit != null && hit.id != selId) select(hit.id)
-        val target = voiceKey(current.okunus)
-        if (target.length < 2) return
-        val n = Regex(Regex.escape(target)).findAll(heard).count()
+        val name = voiceNames(current).filter { heard.contains(it) }.maxByOrNull { it.length } ?: return
+        val n = Regex(Regex.escape(name)).findAll(heard).count()
         if (n > 0) voiceAdd(n)
     }
 
