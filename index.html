@@ -146,6 +146,9 @@ header{display:flex;align-items:center;justify-content:space-between;flex:none}
 .sec{font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--gold-t);margin:18px 4px 4px}
 .note{font-size:13px;color:var(--sub);line-height:1.5;margin:8px 4px}
 /* bildirim */
+#encourage{position:fixed;left:16px;right:16px;bottom:calc(var(--sab) + 150px);z-index:35;pointer-events:none;opacity:0;transform:translateY(12px);transition:opacity .4s,transform .4s;text-align:center;padding:12px 16px;border-radius:14px;background:rgba(18,16,12,.82);border:1px solid rgba(235,203,134,.35);color:#F4E7C6;font-size:14px;line-height:1.5}
+#encourage.on{opacity:1;transform:none}
+#encourage small{display:block;margin-top:6px;color:#EBCB86;font-size:11px;opacity:.85}
 #toast{position:fixed;left:50%;bottom:calc(var(--sab) + 96px);transform:translate(-50%,30px);opacity:0;z-index:40;pointer-events:none;
   display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:22px;background:#1B2F5C;border:1px solid var(--glass-s);
   box-shadow:0 10px 30px rgba(0,0,0,.4);transition:all .25s;white-space:nowrap;font-weight:600;font-size:14.5px}
@@ -207,6 +210,7 @@ header{display:flex;align-items:center;justify-content:space-between;flex:none}
 
 <div id="scrim"></div>
 <div class="sheet" id="sheet"><div class="grab"></div><h2 id="sheetTitle"></h2><div class="tabs" id="sheetTabs"></div><div class="body" id="sheetBody"></div></div>
+<div id="encourage" aria-live="polite"><span id="encT"></span><small id="encS"></small></div>
 <div id="toast"><span id="toastMsg"></span><button id="toastAct"></button></div>
 
 <div id="install">
@@ -217,6 +221,7 @@ header{display:flex;align-items:center;justify-content:space-between;flex:none}
 <label class="hp" aria-hidden="true"><input type="checkbox" switch id="hapticSw"></label>
 
 <script src="data.js"></script>
+<script src="encourage.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

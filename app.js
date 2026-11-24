@@ -587,6 +587,33 @@ function render(dir) {
   kick();
 }
 
+
+// ───────────── Teşvik kartı (hedef tamamlanınca, zikre engel olmadan) ─────────────
+// Havuz: web/encourage.js (window.ENCOURAGE). Tüm havuz bitmeden tekrar etmez; sıra localStorage'da kalır.
+const ENC_KEY = 'zk_enc';
+function encState() { try { return JSON.parse(localStorage.getItem(ENC_KEY)) || { deck: [], last: -1 }; } catch { return { deck: [], last: -1 }; } }
+function nextEncourage() {
+  const pool = window.ENCOURAGE || [];
+  if (!pool.length) return null;
+  const st = encState();
+  let deck = (st.deck || []).filter((i) => Number.isInteger(i) && i >= 0 && i < pool.length);
+  if (!deck.length) {
+    deck = pool.map((_, i) => i);
+    for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    if (deck.length > 1 && deck[0] === st.last) deck.push(deck.shift());
+  }
+  const idx = deck.shift();
+  try { localStorage.setItem(ENC_KEY, JSON.stringify({ deck, last: idx })); } catch {}
+  return pool[idx];
+}
+function showEncourage() {
+  const e = nextEncourage(), box = $('#encourage');
+  if (!e) return;
+  $('#encT').textContent = e.t; $('#encS').textContent = e.s;
+  box.classList.add('on'); clearTimeout(encT);
+  encT = setTimeout(() => box.classList.remove('on'), 5000);
+}
+
 // ───────────── Sayma kuralları ─────────────
 let lastTap = 0;
 function bumpDay(n) { const k = dayKey(); S.history[k] = Math.max(0, (S.history[k] || 0) + n); S.total = Math.max(0, S.total + n); }
@@ -594,16 +621,16 @@ function tap() {
   const now = performance.now();
   if (now - lastTap < 70) return; lastTap = now;
   Audio.unlock(); keepAwake();
-  const d = disp(), ms = S.settings.milestone;
+  const d = disp();
   let n, completed, milestone;
   if (d.vird) {
     if (d.count >= d.target) return;
-    n = d.count + 1; completed = n >= d.target; milestone = ms > 0 && n % ms === 0 && n < d.target;
+    n = d.count + 1; completed = n >= d.target; milestone = false;
     S.session.count = n;
   } else {
     const z = sel();
     if (S.settings.stopAtTarget && z.c >= z.t) { haptic('error'); toast('Hedefe ulaşıldı'); return; }
-    n = z.c + 1; completed = n % z.t === 0; milestone = ms > 0 && n % ms === 0 && n % z.t !== 0;
+    n = z.c + 1; completed = n % z.t === 0; milestone = false;
     z.c = n; if (completed) S.laps[z.id] = (S.laps[z.id] || 0) + 1;
   }
   bumpDay(1);
@@ -615,6 +642,7 @@ function tap() {
   anim.pulseT0 = now;
   if (completed) anim.burstT0 = now + PULL_MS;
   renderNum(true); renderStats(); save(); kick();
+  if (completed && !d.vird) showEncourage();
   if (completed && d.vird) {
     const s0 = S.session;
     setTimeout(() => {
@@ -839,7 +867,7 @@ function settingsSheet() {
       <button class="btn ghost" id="sExport" style="margin:10px 0">Yedeği indir</button>
       <button class="btn ghost" id="sImport" style="margin:10px 0">Yedeği geri yükle</button>
       <input type="file" id="sFile" accept="application/json,.json" hidden>
-      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.7</p>`;
+      <p class="note">Veriler yalnızca bu cihazda saklanır. Zikirmatik web · 4.9</p>`;
     // milestone segmenti 0/33 değerleriyle çalışır
     $('#sheetBody').querySelectorAll('[data-seg="milestone"]').forEach((b, i) => { b.classList.toggle('on', (st.milestone > 0) === (i === 1)); b.dataset.v = i ? 33 : 0; });
     $('#sheetBody').querySelectorAll('.beads canvas').forEach((c, i) => {
